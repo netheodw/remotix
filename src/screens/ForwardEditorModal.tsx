@@ -1,0 +1,213 @@
+import { useState } from "react";
+import { forwardsCreate, forwardsStart, forwardsUpdate } from "../api/commands";
+import { errorMessage } from "../api/errors";
+import type { ForwardType, PortForward } from "../api/types";
+import { Modal } from "../components/Modal";
+import { useData } from "../state/DataContext";
+
+function isLoopback(addr: string): boolean {
+  return addr === "127.0.0.1" || addr === "::1" || addr === "localhost";
+}
+
+export function ForwardEditorModal({
+  forward,
+  defaultGroupId,
+  onClose,
+  onSaved,
+}: {
+  forward: PortForward | null;
+  defaultGroupId: string | null;
+  onClose: () => void;
+  onSaved: (f: PortForward) => void;
+}) {
+  const { portForwardGroups, profiles, refreshForwards } = useData();
+  const [name, setName] = useState(forward?.name ?? "");
+  const [groupId, setGroupId] = useState<string | null>(forward?.port_forward_group_id ?? defaultGroupId);
+  const [profileId, setProfileId] = useState(forward?.ssh_profile_id ?? profiles[0]?.id ?? "");
+  const [type, setType] = useState<ForwardType>(forward?.forward_type ?? "local");
+  const [bindAddress, setBindAddress] = useState(forward?.bind_address ?? "127.0.0.1");
+  const [listenPort, setListenPort] = useState(forward?.listen_port ?? 8080);
+  const [targetHostname, setTargetHostname] = useState(forward?.target_hostname ?? "");
+  const [targetPort, setTargetPort] = useState(forward?.target_port ?? 0);
+  const [startOnLaunch, setStartOnLaunch] = useState(forward?.start_on_launch ?? false);
+  const [nonLoopbackAck, setNonLoopbackAck] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [busy, setBusy] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const needsTarget = type !== "dynamic";
+  const nonLoopback = !isLoopback(bindAddress);
+
+  const validate = () => {
+    const e: Record<string, string> = {};
+    if (!name.trim()) e.name = "Name is required.";
+    if (!profileId) e.profileId = "Select an SSH profile.";
+    if (!bindAddress.trim()) e.bindAddress = "Bind address is required.";
+    if (listenPort < 1 || listenPort > 65535) e.listenPort = "Listen port must be between 1 and 65535.";
+    if (needsTarget) {
+      if (!targetHostname.trim()) e.targetHostname = "Target hostname is required.";
+      if (targetPort < 1 || targetPort > 65535) e.targetPort = "Target port must be between 1 and 65535.";
+    }
+    if (nonLoopback && !nonLoopbackAck) e.bindAddress = "Acknowledge the non-loopback exposure warning below.";
+    setErrors(e);
+    return Object.keys(e).length === 0;
+  };
+
+  const buildInput = () => ({
+    port_forward_group_id: groupId,
+    ssh_profile_id: profileId,
+    name: name.trim(),
+    forward_type: type,
+    bind_address: bindAddress.trim(),
+    listen_port: listenPort,
+    target_hostname: needsTarget ? targetHostname.trim() : null,
+    target_port: needsTarget ? targetPort : null,
+    start_on_launch: startOnLaunch,
+  });
+
+  const save = async (): Promise<PortForward | null> => {
+    if (!validate()) return null;
+    setBusy(true);
+    setFormError(null);
+    try {
+      const saved = forward
+        ? await forwardsUpdate({ id: forward.id, ...buildInput() })
+        : await forwardsCreate(buildInput());
+      await refreshForwards();
+      return saved;
+    } catch (e) {
+      setFormError(errorMessage(e));
+      return null;
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const helperText = () => {
+    const profileName = profiles.find((p) => p.id === profileId)?.name ?? "a profile";
+    if (type === "local") return `127.0.0.1:${listenPort || "?"} → ${targetHostname || "target"}:${targetPort || "?"} through ${profileName}`;
+    if (type === "remote") return `remote-server:${listenPort || "?"} → 127.0.0.1:${targetPort || "?"} through ${profileName}`;
+    return `${bindAddress}:${listenPort || "?"} SOCKS5 through ${profileName}`;
+  };
+
+  return (
+    <Modal title={forward ? "Edit Port Forward" : "New Port Forward"} onClose={onClose} width={560}>
+      <label className="field">
+        <span>Name</span>
+        <input value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+      </label>
+      {errors.name && <div className="field-error">{errors.name}</div>}
+
+      <label className="field">
+        <span>Group</span>
+        <select value={groupId ?? ""} onChange={(e) => setGroupId(e.target.value || null)}>
+          <option value="">Ungrouped</option>
+          {portForwardGroups.map((g) => (
+            <option key={g.id} value={g.id}>
+              {g.name}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      <label className="field">
+        <span>SSH profile</span>
+        {profiles.length === 0 ? (
+          <div className="field-error">Create an SSH profile first before adding a forward.</div>
+        ) : (
+          <select value={profileId} onChange={(e) => setProfileId(e.target.value)}>
+            {profiles.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        )}
+      </label>
+      {errors.profileId && <div className="field-error">{errors.profileId}</div>}
+
+      <div className="segmented">
+        {(["local", "remote", "dynamic"] as ForwardType[]).map((t) => (
+          <button key={t} type="button" className={type === t ? "active" : ""} onClick={() => setType(t)}>
+            {t === "local" ? "Local" : t === "remote" ? "Remote" : "Dynamic (SOCKS5)"}
+          </button>
+        ))}
+      </div>
+
+      <div className="field-row">
+        <label className="field" style={{ flex: 2 }}>
+          <span>Bind address</span>
+          <input value={bindAddress} onChange={(e) => setBindAddress(e.target.value)} />
+        </label>
+        <label className="field" style={{ flex: 1 }}>
+          <span>Listen port</span>
+          <input type="number" value={listenPort} onChange={(e) => setListenPort(Number(e.target.value))} />
+        </label>
+      </div>
+      {errors.listenPort && <div className="field-error">{errors.listenPort}</div>}
+
+      {nonLoopback && (
+        <div className="warning-box">
+          <strong>Warning:</strong> {bindAddress} is not a loopback address. This forward will be reachable from other
+          devices on the network, not just this computer.
+          <label className="checkbox-row">
+            <input type="checkbox" checked={nonLoopbackAck} onChange={(e) => setNonLoopbackAck(e.target.checked)} />
+            I understand and want to expose this forward beyond loopback.
+          </label>
+        </div>
+      )}
+      {errors.bindAddress && <div className="field-error">{errors.bindAddress}</div>}
+
+      {needsTarget && (
+        <div className="field-row">
+          <label className="field" style={{ flex: 2 }}>
+            <span>Target hostname</span>
+            <input value={targetHostname} onChange={(e) => setTargetHostname(e.target.value)} />
+          </label>
+          <label className="field" style={{ flex: 1 }}>
+            <span>Target port</span>
+            <input type="number" value={targetPort} onChange={(e) => setTargetPort(Number(e.target.value))} />
+          </label>
+        </div>
+      )}
+      {errors.targetHostname && <div className="field-error">{errors.targetHostname}</div>}
+      {errors.targetPort && <div className="field-error">{errors.targetPort}</div>}
+
+      <div className="forward-helper">{helperText()}</div>
+
+      <label className="checkbox-row">
+        <input type="checkbox" checked={startOnLaunch} onChange={(e) => setStartOnLaunch(e.target.checked)} />
+        Start automatically when Remotix launches
+      </label>
+
+      {formError && <div className="field-error">{formError}</div>}
+      <div className="modal-actions">
+        <button onClick={onClose} disabled={busy}>
+          Cancel
+        </button>
+        <button
+          disabled={busy || profiles.length === 0}
+          onClick={async () => {
+            const saved = await save();
+            if (saved) onSaved(saved);
+          }}
+        >
+          Save
+        </button>
+        <button
+          className="primary"
+          disabled={busy || profiles.length === 0}
+          onClick={async () => {
+            const saved = await save();
+            if (saved) {
+              await forwardsStart(saved.id);
+              onSaved(saved);
+            }
+          }}
+        >
+          Save and Start
+        </button>
+      </div>
+    </Modal>
+  );
+}

@@ -1,0 +1,139 @@
+:root {
+  --bg-0: #0f1115;
+  --bg-1: #161a21;
+  --bg-2: #1d222b;
+  --bg-3: #262c37;
+  --border: #2e3542;
+  --text-0: #e8ebf0;
+  --text-1: #aab2c0;
+  --text-2: #6b7484;
+  --accent: #4f8cff;
+  --accent-hover: #6ea0ff;
+  --accent-text: #051022;
+  --success: #35c07a;
+  --warning: #e0a83e;
+  --danger: #e5566a;
+  --danger-hover: #f0788a;
+  --focus-ring: 0 0 0 2px rgba(79, 140, 255, 0.5);
+  --radius: 6px;
+  --font-ui: -apple-system, "Segoe UI", Inter, Roboto, sans-serif;
+  --font-mono: "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background: var(--bg-0);
+  color: var(--text-0);
+  font-family: var(--font-ui);
+  font-size: 13px;
+}
+
+button {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+input,
+select,
+textarea {
+  font-family: inherit;
+  font-size: inherit;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  color: var(--text-0);
+  border-radius: var(--radius);
+  padding: 6px 8px;
+}
+
+input:focus,
+select:focus,
+textarea:focus,
+button:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+button {
+  cursor: pointer;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-2);
+  color: var(--text-0);
+  padding: 6px 12px;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+
+button:hover {
+  background: var(--bg-3);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+  font-weight: 600;
+}
+
+button.primary:hover {
+  background: var(--accent-hover);
+}
+
+button.danger {
+  background: transparent;
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+button.danger:hover {
+  background: var(--danger);
+  color: #1a0a0d;
+}
+
+button.ghost {
+  background: transparent;
+  border-color: transparent;
+}
+
+a {
+  color: var(--accent);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--bg-3);
+  border-radius: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+}
+.status-dot.ok {
+  background: var(--success);
+}
+.status-dot.warn {
+  background: var(--warning);
+}
+.status-dot.err {
+  background: var(--danger);
+}
+.status-dot.idle {
+  background: var(--text-2);
+}

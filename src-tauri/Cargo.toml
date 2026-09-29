@@ -1,0 +1,61 @@
+[package]
+name = "remotix"
+version = "0.1.0"
+description = "Remotix - a local-first SSH client and tunnel manager"
+authors = ["Remotix"]
+edition = "2021"
+rust-version = "1.77"
+
+[lib]
+name = "remotix_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-opener = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-clipboard-manager = "2"
+
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "sync", "time", "io-util"] }
+
+rusqlite = { version = "0.32", features = ["bundled"] }
+r2d2 = "0.8"
+r2d2_sqlite = "0.25"
+
+ssh2 = { version = "0.9", features = ["vendored-openssl", "openssl-on-win32"] }
+
+argon2 = "0.5"
+aes-gcm = "0.10"
+zeroize = { version = "1", features = ["derive"] }
+sha2 = "0.10"
+
+thiserror = "2"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+uuid = { version = "1", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+base64 = "0.22"
+
+# Used by the `testing` module (test fixtures shared between unit tests and
+# the integration tests under `tests/`) - not a dev-dependency because
+# integration test binaries link the lib built without cfg(test).
+tempfile = "3"
+
+# Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 3
+# Deliberately not `panic = "abort"`, which the size guide suggests. ssh2's
+# Windows path conversion does `str::from_utf8(bytes).unwrap()`, so a remote
+# file whose name is not valid UTF-8 panics inside the crate. Unwinding lets
+# `sftp::guard` turn that into an error on the one operation instead of
+# aborting the process mid-transfer. See src/sftp/mod.rs.
+strip = true
