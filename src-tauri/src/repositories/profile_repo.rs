@@ -231,6 +231,22 @@ impl ProfileRepository {
         }
     }
 
+    /// Returns the stored password of a password-auth profile so the user can
+    /// view it in the editor. This is the one deliberate path that sends a
+    /// plaintext secret to the UI; it is limited to passwords (never private
+    /// keys or passphrases) and requires an unlocked vault.
+    pub fn reveal_password(conn: &Connection, vault: &VaultManager, id: &str) -> AppResult<String> {
+        let profile = Self::get(conn, id)?;
+        if profile.authentication_kind != AuthKind::Password {
+            return Err(AppError::Validation("profile does not use password authentication".into()));
+        }
+        let sid = Self::existing_secrets(conn, id)?
+            .secret_id
+            .ok_or_else(|| AppError::Validation("profile has no stored password".into()))?;
+        let password = SecretRepository::reveal(conn, vault, &sid)?;
+        Ok(String::from_utf8_lossy(&password).to_string())
+    }
+
     fn store_new_secret(
         conn: &Connection,
         vault: &VaultManager,
@@ -374,6 +390,19 @@ mod tests {
             crate::ssh::session::AuthMaterial::Password(p) => assert_eq!(p, "s3cret"),
             _ => panic!("expected password auth material"),
         }
+    }
+
+    #[test]
+    fn reveal_password_returns_stored_password_only_for_password_profiles() {
+        let (_dir, pool, vault) = setup();
+        let conn = pool.get().unwrap();
+        let profile = ProfileRepository::create(&conn, &vault, password_input("Prod", "s3cret")).unwrap();
+        assert_eq!(ProfileRepository::reveal_password(&conn, &vault, &profile.id).unwrap(), "s3cret");
+
+        let mut key_input = password_input("Key", "unused");
+        key_input.secret = AuthSecretInput::PrivateKey { private_key: "-----BEGIN KEY-----".into() };
+        let key_profile = ProfileRepository::create(&conn, &vault, key_input).unwrap();
+        assert!(ProfileRepository::reveal_password(&conn, &vault, &key_profile.id).is_err());
     }
 
     #[test]

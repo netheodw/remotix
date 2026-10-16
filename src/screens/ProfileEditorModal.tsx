@@ -1,10 +1,43 @@
 import { open as openFileDialog } from "@tauri-apps/plugin-dialog";
 import { useState } from "react";
-import { profilesCreate, profilesImportPrivateKeyFile, profilesUpdate } from "../api/commands";
+import {
+  profilesCreate,
+  profilesImportPrivateKeyFile,
+  profilesRevealPassword,
+  profilesUpdate,
+} from "../api/commands";
 import { errorMessage } from "../api/errors";
 import type { AuthKind, AuthSecretInput, SshProfile } from "../api/types";
 import { Modal } from "../components/Modal";
 import { useData } from "../state/DataContext";
+
+function EyeIcon({ open }: { open: boolean }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" />
+      <circle cx="12" cy="12" r="3" />
+      {!open && <line x1="3" y1="3" x2="21" y2="21" />}
+    </svg>
+  );
+}
+
+function PasswordInput({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [visible, setVisible] = useState(false);
+  return (
+    <div className="password-input">
+      <input type={visible ? "text" : "password"} value={value} onChange={(e) => onChange(e.target.value)} />
+      <button
+        type="button"
+        className="icon-toggle"
+        title={visible ? "Hide" : "Show"}
+        aria-label={visible ? "Hide" : "Show"}
+        onClick={() => setVisible((v) => !v)}
+      >
+        <EyeIcon open={!visible} />
+      </button>
+    </div>
+  );
+}
 
 export function ProfileEditorModal({
   profile,
@@ -32,6 +65,24 @@ export function ProfileEditorModal({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [revealedPassword, setRevealedPassword] = useState<string | null>(null);
+  const [revealError, setRevealError] = useState<string | null>(null);
+
+  const canRevealSaved = !!profile && profile.has_secret && profile.authentication_kind === "password";
+
+  const toggleRevealSaved = async () => {
+    if (revealedPassword !== null) {
+      setRevealedPassword(null);
+      return;
+    }
+    if (!profile) return;
+    setRevealError(null);
+    try {
+      setRevealedPassword(await profilesRevealPassword(profile.id));
+    } catch (e) {
+      setRevealError(errorMessage(e));
+    }
+  };
 
   const validate = (): boolean => {
     const e: Record<string, string> = {};
@@ -155,17 +206,41 @@ export function ProfileEditorModal({
 
         {!changeSecret && profile && (
           <div className="secret-saved-row">
-            <span>Saved securely</span>
-            <button className="ghost" onClick={() => setChangeSecret(true)}>
-              Replace
-            </button>
+            {revealedPassword !== null ? (
+              <span className="secret-value">{revealedPassword}</span>
+            ) : (
+              <span>Saved securely</span>
+            )}
+            <div className="secret-saved-actions">
+              {canRevealSaved && (
+                <button
+                  type="button"
+                  className="icon-toggle"
+                  title={revealedPassword !== null ? "Hide password" : "Show password"}
+                  aria-label={revealedPassword !== null ? "Hide password" : "Show password"}
+                  onClick={toggleRevealSaved}
+                >
+                  <EyeIcon open={revealedPassword === null} />
+                </button>
+              )}
+              <button
+                className="ghost"
+                onClick={() => {
+                  setRevealedPassword(null);
+                  setChangeSecret(true);
+                }}
+              >
+                Replace
+              </button>
+            </div>
           </div>
         )}
+        {revealError && <div className="field-error">{revealError}</div>}
 
         {changeSecret && authKind === "password" && (
           <label className="field">
             <span>Password</span>
-            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+            <PasswordInput value={password} onChange={setPassword} />
           </label>
         )}
         {errors.password && <div className="field-error">{errors.password}</div>}
@@ -185,7 +260,7 @@ export function ProfileEditorModal({
         {changeSecret && authKind === "private_key_passphrase" && (
           <label className="field">
             <span>Passphrase</span>
-            <input type="password" value={passphrase} onChange={(e) => setPassphrase(e.target.value)} />
+            <PasswordInput value={passphrase} onChange={setPassphrase} />
           </label>
         )}
         {errors.passphrase && <div className="field-error">{errors.passphrase}</div>}

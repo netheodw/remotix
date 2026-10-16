@@ -57,6 +57,7 @@ pub fn run() {
             commands::profiles::profiles_update,
             commands::profiles::profiles_delete,
             commands::profiles::profiles_duplicate,
+            commands::profiles::profiles_reveal_password,
             commands::profiles::profiles_move_to_group,
             commands::profiles::profiles_test_connection,
             commands::profiles::profiles_import_private_key_file,

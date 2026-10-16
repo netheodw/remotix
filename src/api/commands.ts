@@ -56,6 +56,7 @@ export const profilesUpdate = (input: UpdateSshProfileInput) => invoke<SshProfil
 export const profilesDelete = (id: string) => invoke<void>("profiles_delete", { id });
 export const profilesDuplicate = (id: string, newName: string) =>
   invoke<SshProfile>("profiles_duplicate", { id, newName });
+export const profilesRevealPassword = (id: string) => invoke<string>("profiles_reveal_password", { id });
 export const profilesMoveToGroup = (id: string, groupId: string | null) =>
   invoke<SshProfile>("profiles_move_to_group", { id, groupId });
 export const profilesImportPrivateKeyFile = (path: string) =>

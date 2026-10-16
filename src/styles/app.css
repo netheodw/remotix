@@ -228,6 +228,53 @@ body,
   color: var(--text-1);
 }
 
+.secret-saved-row .secret-value {
+  flex: 1;
+  font-family: var(--font-mono);
+  color: var(--text-0);
+  user-select: text;
+  overflow-wrap: anywhere;
+}
+
+.secret-saved-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.password-input {
+  position: relative;
+  display: flex;
+}
+
+.password-input input {
+  flex: 1;
+  padding-right: 34px;
+}
+
+.icon-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-1);
+  cursor: pointer;
+}
+
+.icon-toggle:hover {
+  color: var(--text-0);
+}
+
+.password-input .icon-toggle {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
 .warning-box {
   background: rgba(224, 168, 62, 0.1);
   border: 1px solid var(--warning);

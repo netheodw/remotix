@@ -66,6 +66,20 @@ pub async fn profiles_update(state: State<'_, AppState>, input: UpdateSshProfile
     .map_err(|e| AppError::Internal(e.to_string()))?
 }
 
+/// Returns the saved password of a password-auth profile for display in the
+/// editor. Fails if the vault is locked or the profile uses key auth.
+#[tauri::command]
+pub async fn profiles_reveal_password(state: State<'_, AppState>, id: String) -> AppResult<String> {
+    let db = state.db.clone();
+    let vault = state.vault.clone();
+    tokio::task::spawn_blocking(move || {
+        let conn = db.get()?;
+        ProfileRepository::reveal_password(&conn, &vault, &id)
+    })
+    .await
+    .map_err(|e| AppError::Internal(e.to_string()))?
+}
+
 #[tauri::command]
 pub async fn profiles_delete(state: State<'_, AppState>, id: String) -> AppResult<()> {
     let db = state.db.clone();
