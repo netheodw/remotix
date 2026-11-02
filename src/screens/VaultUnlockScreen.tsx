@@ -1,4 +1,5 @@
 import { listen } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { vaultHelloStatus, vaultUnlock, vaultUnlockHello } from "../api/commands";
 import { errorMessage } from "../api/errors";
@@ -43,20 +44,29 @@ export function VaultUnlockScreen() {
   }, []);
 
   // Ask for Windows Hello straight away, so opening Remotix (or one of its
-  // desktop shortcuts) needs only the Hello PIN, fingerprint or face.
+  // desktop shortcuts) needs only the Hello PIN, fingerprint or face. A
+  // start at login keeps the window hidden in the tray, so wait until it is
+  // shown rather than prompting where nobody is looking.
   useEffect(() => {
-    if (helloReady && !autoPrompted.current) {
-      autoPrompted.current = true;
-      void unlockWithHello();
-    }
+    if (!helloReady || autoPrompted.current) return;
+    autoPrompted.current = true;
+    getCurrentWindow()
+      .isVisible()
+      .then((visible) => {
+        if (visible) void unlockWithHello();
+      })
+      .catch(() => void unlockWithHello());
   }, [helloReady, unlockWithHello]);
 
-  // A desktop shortcut clicked while Remotix sits locked: prompt again.
+  // Window brought up from the tray, or a desktop shortcut clicked, while
+  // Remotix sits locked: prompt again.
   useEffect(() => {
     if (!helloReady) return;
-    const unlisten = listen("launch-open-profile", () => void unlockWithHello());
+    const unlistens = ["main-window-shown", "launch-open-profile"].map((event) =>
+      listen(event, () => void unlockWithHello()),
+    );
     return () => {
-      unlisten.then((f) => f());
+      unlistens.forEach((u) => u.then((f) => f()));
     };
   }, [helloReady, unlockWithHello]);
 

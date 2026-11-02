@@ -4,12 +4,17 @@
 
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 
 use crate::state::AppState;
 
 /// Passed by the autostart entry so a login start goes straight to the tray.
 pub const MINIMIZED_FLAG: &str = "--minimized";
+
+/// Emitted whenever the main window is brought up. A locked vault answers it
+/// with a Windows Hello prompt, which would be missed while the window is
+/// hidden in the tray.
+pub const WINDOW_SHOWN_EVENT: &str = "main-window-shown";
 
 pub fn init(app: &tauri::App) -> tauri::Result<()> {
     let show = MenuItem::with_id(app, "show", "Show Remotix", true, None::<&str>)?;
@@ -48,6 +53,7 @@ pub fn show_main_window(app: &AppHandle) {
         let _ = window.unminimize();
         let _ = window.show();
         let _ = window.set_focus();
+        let _ = app.emit(WINDOW_SHOWN_EVENT, ());
     }
 }
 
