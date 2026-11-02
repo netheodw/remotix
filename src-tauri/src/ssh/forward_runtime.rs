@@ -202,6 +202,7 @@ fn bridge_local(
         return BridgeExit::SessionError("could not configure listener".into());
     }
 
+    let socket_path = forward.target_socket_path().map(str::to_string);
     let target_host = forward.target_hostname.clone().unwrap_or_default();
     let target_port = forward.target_port.unwrap_or(0);
 
@@ -214,9 +215,13 @@ fn bridge_local(
         match listener.accept() {
             Ok((stream, _addr)) => {
                 let _ = stream.set_nonblocking(true);
-                match open_direct_tcpip(session, &target_host, target_port) {
+                let opened = match &socket_path {
+                    Some(path) => open_direct_streamlocal(session, path),
+                    None => open_direct_tcpip(session, &target_host, target_port),
+                };
+                match opened {
                     Ok(channel) => pairs.push(Pair { stream, channel, to_channel: Vec::new(), to_stream: Vec::new() }),
-                    Err(e) => tracing::warn!(error = %e, "direct-tcpip channel open failed"),
+                    Err(e) => tracing::warn!(error = %e, "local forward channel open failed"),
                 }
             }
             Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {}
@@ -339,6 +344,23 @@ fn open_direct_tcpip(session: &Session, host: &str, port: u16) -> Result<Channel
     let mut attempts = 0;
     loop {
         match session.channel_direct_tcpip(host, port, None) {
+            Ok(channel) => return Ok(channel),
+            Err(e) if ssh_would_block(&e) && attempts < 200 => {
+                attempts += 1;
+                std::thread::sleep(Duration::from_millis(10));
+            }
+            Err(e) => return Err(e),
+        }
+    }
+}
+
+/// Opens a direct-streamlocal@openssh.com channel to a Unix socket on the
+/// server (`ssh -L port:/path.sock`), with the same EAGAIN retry as
+/// `open_direct_tcpip`.
+fn open_direct_streamlocal(session: &Session, socket_path: &str) -> Result<Channel, ssh2::Error> {
+    let mut attempts = 0;
+    loop {
+        match session.channel_direct_streamlocal(socket_path, None) {
             Ok(channel) => return Ok(channel),
             Err(e) if ssh_would_block(&e) && attempts < 200 => {
                 attempts += 1;

@@ -3,8 +3,10 @@ use tauri::State;
 
 use crate::commands::forwards::start_forward_with_events;
 use crate::error::{AppError, AppResult};
+use crate::platform::hello;
 use crate::repositories::ForwardRepository;
 use crate::state::AppState;
+use crate::vault::manager::HelloStatus;
 use crate::vault::VaultManager;
 
 #[derive(Serialize)]
@@ -69,5 +71,63 @@ async fn start_forwards_flagged_for_launch(app: tauri::AppHandle, state: &AppSta
 pub async fn vault_lock(state: State<'_, AppState>) -> AppResult<()> {
     state.ssh.stop_all();
     state.vault.lock();
+    Ok(())
+}
+
+#[derive(Serialize)]
+pub struct HelloInfo {
+    /// Windows Hello is set up for this Windows user (PIN at minimum).
+    pub supported: bool,
+    #[serde(flatten)]
+    pub status: HelloStatus,
+}
+
+#[tauri::command]
+pub async fn vault_hello_status(state: State<'_, AppState>) -> AppResult<HelloInfo> {
+    let db = state.db.clone();
+    tokio::task::spawn_blocking(move || {
+        let status = VaultManager::hello_status(&db)?;
+        Ok(HelloInfo {
+            supported: hello::is_supported(),
+            status,
+        })
+    })
+    .await
+    .map_err(|e| AppError::Internal(e.to_string()))?
+}
+
+#[tauri::command]
+pub async fn vault_hello_enable(state: State<'_, AppState>, password: String) -> AppResult<()> {
+    let db = state.db.clone();
+    let vault = state.vault.clone();
+    tokio::task::spawn_blocking(move || vault.enable_hello(&db, &password, hello::create_and_sign))
+        .await
+        .map_err(|e| AppError::Internal(e.to_string()))?
+}
+
+#[tauri::command]
+pub async fn vault_hello_disable(state: State<'_, AppState>) -> AppResult<()> {
+    if !state.vault.is_unlocked() {
+        return Err(AppError::VaultLocked);
+    }
+    let db = state.db.clone();
+    tokio::task::spawn_blocking(move || {
+        VaultManager::disable_hello(&db)?;
+        hello::delete();
+        Ok(())
+    })
+    .await
+    .map_err(|e| AppError::Internal(e.to_string()))?
+}
+
+#[tauri::command]
+pub async fn vault_unlock_hello(app: tauri::AppHandle, state: State<'_, AppState>) -> AppResult<()> {
+    let db = state.db.clone();
+    let vault = state.vault.clone();
+    tokio::task::spawn_blocking(move || vault.unlock_with_hello(&db, hello::sign))
+        .await
+        .map_err(|e| AppError::Internal(e.to_string()))??;
+
+    start_forwards_flagged_for_launch(app, &state).await;
     Ok(())
 }

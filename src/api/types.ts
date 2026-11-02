@@ -147,6 +147,15 @@ export interface VaultStatus {
   unlocked: boolean;
 }
 
+export interface HelloInfo {
+  /** Windows Hello is set up for this Windows user (PIN at minimum). */
+  supported: boolean;
+  enabled: boolean;
+  /** The next unlock must use the master password (asked every 6 months). */
+  password_required: boolean;
+  password_due_at: string | null;
+}
+
 export type AppErrorKind =
   | "validation"
   | "not_found"
@@ -155,6 +164,9 @@ export type AppErrorKind =
   | "vault_already_initialized"
   | "vault_not_initialized"
   | "incorrect_password"
+  | "master_password_required"
+  | "biometric_unavailable"
+  | "biometric_cancelled"
   | "rate_limited"
   | "crypto"
   | "database"
@@ -201,6 +213,33 @@ export interface CommandHistoryEntry {
   ssh_profile_id: string;
   command: string;
   executed_at: string;
+}
+
+export interface SnippetCategory {
+  id: string;
+  name: string;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Snippet {
+  id: string;
+  category_id: string;
+  name: string;
+  /** `{{name}}` marks a placeholder the toolbox asks for before inserting. */
+  command: string;
+  description: string;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SnippetInput {
+  category_id: string;
+  name: string;
+  command: string;
+  description: string;
 }
 
 export type FileEntryKind = "file" | "directory" | "symlink" | "other";

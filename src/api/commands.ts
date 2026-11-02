@@ -1,5 +1,6 @@
 import { Channel, invoke } from "@tauri-apps/api/core";
 import type {
+  HelloInfo,
   CommandHistoryEntry,
   Group,
   EditHandle,
@@ -12,6 +13,9 @@ import type {
   PortForward,
   RemoteListing,
   SftpConnected,
+  Snippet,
+  SnippetCategory,
+  SnippetInput,
   SshProfile,
   TerminalEvent,
   TransferEvent,
@@ -29,6 +33,15 @@ export const vaultStatus = () => invoke<VaultStatus>("vault_status");
 export const vaultSetup = (password: string) => invoke<void>("vault_setup", { password });
 export const vaultUnlock = (password: string) => invoke<void>("vault_unlock", { password });
 export const vaultLock = () => invoke<void>("vault_lock");
+export const vaultHelloStatus = () => invoke<HelloInfo>("vault_hello_status");
+export const vaultHelloEnable = (password: string) => invoke<void>("vault_hello_enable", { password });
+export const vaultHelloDisable = () => invoke<void>("vault_hello_disable");
+export const vaultUnlockHello = () => invoke<void>("vault_unlock_hello");
+
+// --- Desktop shortcuts (open one profile's terminal from the desktop) ---
+export const launchTakePendingProfile = () => invoke<string | null>("launch_take_pending_profile");
+export const profilesCreateDesktopShortcut = (id: string) =>
+  invoke<string>("profiles_create_desktop_shortcut", { id });
 
 // --- Terminal groups ---
 export const terminalGroupsList = () => invoke<Group[]>("terminal_groups_list");
@@ -119,6 +132,17 @@ export const commandHistoryRecord = (profileId: string, command: string) =>
   invoke<CommandHistoryEntry | null>("command_history_record", { profileId, command });
 export const commandHistoryClear = (profileId: string) =>
   invoke<void>("command_history_clear", { profileId });
+
+// --- Toolbox snippets ---
+export const snippetCategoriesList = () => invoke<SnippetCategory[]>("snippet_categories_list");
+export const snippetCategoriesCreate = (name: string) => invoke<SnippetCategory>("snippet_categories_create", { name });
+export const snippetCategoriesRename = (id: string, name: string) =>
+  invoke<SnippetCategory>("snippet_categories_rename", { id, name });
+export const snippetCategoriesDelete = (id: string) => invoke<void>("snippet_categories_delete", { id });
+export const snippetsList = () => invoke<Snippet[]>("snippets_list");
+export const snippetsCreate = (input: SnippetInput) => invoke<Snippet>("snippets_create", { input });
+export const snippetsUpdate = (id: string, input: SnippetInput) => invoke<Snippet>("snippets_update", { id, input });
+export const snippetsDelete = (id: string) => invoke<void>("snippets_delete", { id });
 
 // --- SFTP ---
 export function sftpConnect(profileId: string, onTransferEvent: (e: TransferEvent) => void): Promise<SftpConnected> {

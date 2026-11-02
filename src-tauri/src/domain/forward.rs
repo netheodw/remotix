@@ -27,6 +27,12 @@ impl ForwardType {
     }
 }
 
+/// A local forward whose target is an absolute path (and no port) goes to a
+/// Unix domain socket on the server, like `ssh -L 23750:/var/run/docker.sock`.
+pub fn is_socket_target(forward_type: ForwardType, target_hostname: Option<&str>) -> bool {
+    forward_type == ForwardType::Local && target_hostname.is_some_and(|h| h.trim_start().starts_with('/'))
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct PortForward {
     pub id: String,
@@ -45,6 +51,14 @@ pub struct PortForward {
     pub sort_order: i64,
     pub created_at: String,
     pub updated_at: String,
+}
+
+impl PortForward {
+    /// The remote Unix socket path, when this is a local forward to a socket.
+    pub fn target_socket_path(&self) -> Option<&str> {
+        let host = self.target_hostname.as_deref()?;
+        is_socket_target(self.forward_type, Some(host)).then(|| host.trim())
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]

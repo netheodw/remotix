@@ -10,6 +10,11 @@ const MIGRATIONS: &[(&str, &str)] = &[
         "0002_command_history",
         include_str!("migrations/0002_command_history.sql"),
     ),
+    (
+        "0003_windows_hello",
+        include_str!("migrations/0003_windows_hello.sql"),
+    ),
+    ("0004_snippets", include_str!("migrations/0004_snippets.sql")),
 ];
 
 pub fn init_pool(db_path: &Path) -> rusqlite::Result<Pool> {

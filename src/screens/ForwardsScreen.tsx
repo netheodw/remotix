@@ -28,6 +28,9 @@ function endpointLabel(f: PortForward): { source: string; destination: string | 
   if (f.forward_type === "dynamic") {
     return { source: `${f.bind_address}:${f.listen_port} (SOCKS5)`, destination: null };
   }
+  if (f.target_port === null) {
+    return { source: `${f.bind_address}:${f.listen_port}`, destination: `unix:${f.target_hostname}` };
+  }
   return { source: `${f.bind_address}:${f.listen_port}`, destination: `${f.target_hostname}:${f.target_port}` };
 }
 

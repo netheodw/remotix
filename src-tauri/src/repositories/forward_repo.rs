@@ -1,6 +1,6 @@
 use rusqlite::{Connection, OptionalExtension, Row};
 
-use crate::domain::{ForwardType, NewPortForwardInput, PortForward, UpdatePortForwardInput};
+use crate::domain::{is_socket_target, ForwardType, NewPortForwardInput, PortForward, UpdatePortForwardInput};
 use crate::error::{AppError, AppResult};
 use crate::util::{new_id, now_iso};
 use crate::validation::{validate_bind_address, validate_display_name, validate_port};
@@ -33,8 +33,7 @@ impl ForwardRepository {
             None,
         )?;
 
-        let target_hostname = if input.forward_type == ForwardType::Dynamic { None } else { input.target_hostname };
-        let target_port = if input.forward_type == ForwardType::Dynamic { None } else { input.target_port };
+        let (target_hostname, target_port) = normalize_target(input.forward_type, input.target_hostname, input.target_port);
 
         let id = new_id();
         let now = now_iso();
@@ -71,8 +70,7 @@ impl ForwardRepository {
             Some(&input.id),
         )?;
 
-        let target_hostname = if input.forward_type == ForwardType::Dynamic { None } else { input.target_hostname };
-        let target_port = if input.forward_type == ForwardType::Dynamic { None } else { input.target_port };
+        let (target_hostname, target_port) = normalize_target(input.forward_type, input.target_hostname, input.target_port);
 
         conn.execute(
             "UPDATE port_forwards SET port_forward_group_id = ?1, ssh_profile_id = ?2, name = ?3, type = ?4, bind_address = ?5, listen_port = ?6, target_hostname = ?7, target_port = ?8, start_on_launch = ?9, updated_at = ?10 WHERE id = ?11",
@@ -175,9 +173,18 @@ impl ForwardRepository {
             if host.is_empty() {
                 return Err(AppError::Validation("target hostname is required".into()));
             }
-            match target_port {
-                Some(p) => validate_port(p)?,
-                None => return Err(AppError::Validation("target port is required".into())),
+            if host.starts_with('/') && forward_type != ForwardType::Local {
+                return Err(AppError::Validation("a Unix socket target is only supported for local forwards".into()));
+            }
+            if is_socket_target(forward_type, Some(host)) {
+                if host.contains('\0') {
+                    return Err(AppError::Validation("socket path contains an invalid character".into()));
+                }
+            } else {
+                match target_port {
+                    Some(p) => validate_port(p)?,
+                    None => return Err(AppError::Validation("target port is required".into())),
+                }
             }
         }
 
@@ -216,6 +223,21 @@ impl ForwardRepository {
             updated_at: row.get(12)?,
         })
     }
+}
+
+/// Dynamic forwards have no target; socket targets have no port.
+fn normalize_target(
+    forward_type: ForwardType,
+    target_hostname: Option<String>,
+    target_port: Option<u16>,
+) -> (Option<String>, Option<u16>) {
+    if forward_type == ForwardType::Dynamic {
+        return (None, None);
+    }
+    if is_socket_target(forward_type, target_hostname.as_deref()) {
+        return (target_hostname.map(|h| h.trim().to_string()), None);
+    }
+    (target_hostname, target_port)
 }
 
 #[cfg(test)]
@@ -290,6 +312,30 @@ mod tests {
         let f = ForwardRepository::create(&conn, input).unwrap();
         assert_eq!(f.target_hostname, None);
         assert_eq!(f.target_port, None);
+    }
+
+    #[test]
+    fn local_forward_to_unix_socket_has_no_port() {
+        let (_dir, pool, profile_id) = setup();
+        let conn = pool.get().unwrap();
+        let mut input = local_input(&profile_id, 23750);
+        input.target_hostname = Some("/var/run/docker.sock".into());
+        input.target_port = Some(0);
+        let f = ForwardRepository::create(&conn, input).unwrap();
+        assert_eq!(f.target_hostname.as_deref(), Some("/var/run/docker.sock"));
+        assert_eq!(f.target_port, None);
+        assert_eq!(f.target_socket_path(), Some("/var/run/docker.sock"));
+    }
+
+    #[test]
+    fn remote_forward_rejects_unix_socket_target() {
+        let (_dir, pool, profile_id) = setup();
+        let conn = pool.get().unwrap();
+        let mut input = local_input(&profile_id, 8080);
+        input.forward_type = ForwardType::Remote;
+        input.target_hostname = Some("/var/run/docker.sock".into());
+        input.target_port = None;
+        assert!(ForwardRepository::create(&conn, input).is_err());
     }
 
     #[test]

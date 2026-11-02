@@ -13,6 +13,9 @@ use crate::vault::VaultManager;
 
 const READ_BUF_SIZE: usize = 32 * 1024;
 const POLL_INTERVAL: Duration = Duration::from_millis(15);
+/// libssh2 only emits keepalives when asked, so without this an idle shell
+/// dies behind NAT or a server-side idle timeout.
+const KEEPALIVE_INTERVAL_SECS: u32 = 30;
 
 #[derive(Clone, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
@@ -136,6 +139,7 @@ fn run_terminal(
         emit(TerminalEvent::Closed { reason: format!("could not start shell: {e}") });
         return;
     }
+    session.set_keepalive(true, KEEPALIVE_INTERVAL_SECS);
     session.set_blocking(false);
     emit(TerminalEvent::Status { state: "connected".into(), message: None });
 
@@ -183,6 +187,9 @@ fn run_terminal(
         if channel.eof() {
             break 'outer;
         }
+        // Cheap when not due: libssh2 only sends once the interval has passed.
+        // Errors are ignored - a dead link surfaces as a read error or EOF.
+        let _ = session.keepalive_send();
         std::thread::sleep(POLL_INTERVAL);
     }
 }

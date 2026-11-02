@@ -29,6 +29,9 @@ export function ForwardEditorModal({
   const [listenPort, setListenPort] = useState(forward?.listen_port ?? 8080);
   const [targetHostname, setTargetHostname] = useState(forward?.target_hostname ?? "");
   const [targetPort, setTargetPort] = useState(forward?.target_port ?? 0);
+  const [targetIsSocket, setTargetIsSocket] = useState(
+    forward?.forward_type === "local" && (forward.target_hostname ?? "").startsWith("/"),
+  );
   const [startOnLaunch, setStartOnLaunch] = useState(forward?.start_on_launch ?? false);
   const [nonLoopbackAck, setNonLoopbackAck] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -36,6 +39,7 @@ export function ForwardEditorModal({
   const [formError, setFormError] = useState<string | null>(null);
 
   const needsTarget = type !== "dynamic";
+  const socketTarget = type === "local" && targetIsSocket;
   const nonLoopback = !isLoopback(bindAddress);
 
   const validate = () => {
@@ -44,8 +48,11 @@ export function ForwardEditorModal({
     if (!profileId) e.profileId = "Select an SSH profile.";
     if (!bindAddress.trim()) e.bindAddress = "Bind address is required.";
     if (listenPort < 1 || listenPort > 65535) e.listenPort = "Listen port must be between 1 and 65535.";
-    if (needsTarget) {
+    if (socketTarget) {
+      if (!targetHostname.trim().startsWith("/")) e.targetHostname = "Socket path must be absolute, e.g. /var/run/docker.sock.";
+    } else if (needsTarget) {
       if (!targetHostname.trim()) e.targetHostname = "Target hostname is required.";
+      else if (targetHostname.trim().startsWith("/")) e.targetHostname = "Choose Unix socket as the target to forward to a socket path.";
       if (targetPort < 1 || targetPort > 65535) e.targetPort = "Target port must be between 1 and 65535.";
     }
     if (nonLoopback && !nonLoopbackAck) e.bindAddress = "Acknowledge the non-loopback exposure warning below.";
@@ -61,7 +68,7 @@ export function ForwardEditorModal({
     bind_address: bindAddress.trim(),
     listen_port: listenPort,
     target_hostname: needsTarget ? targetHostname.trim() : null,
-    target_port: needsTarget ? targetPort : null,
+    target_port: needsTarget && !socketTarget ? targetPort : null,
     start_on_launch: startOnLaunch,
   });
 
@@ -85,7 +92,8 @@ export function ForwardEditorModal({
 
   const helperText = () => {
     const profileName = profiles.find((p) => p.id === profileId)?.name ?? "a profile";
-    if (type === "local") return `127.0.0.1:${listenPort || "?"} → ${targetHostname || "target"}:${targetPort || "?"} through ${profileName}`;
+    if (socketTarget) return `${bindAddress}:${listenPort || "?"} → remote socket ${targetHostname || "/path.sock"} through ${profileName}`;
+    if (type === "local") return `${bindAddress}:${listenPort || "?"} → ${targetHostname || "target"}:${targetPort || "?"} through ${profileName}`;
     if (type === "remote") return `remote-server:${listenPort || "?"} → 127.0.0.1:${targetPort || "?"} through ${profileName}`;
     return `${bindAddress}:${listenPort || "?"} SOCKS5 through ${profileName}`;
   };
@@ -158,7 +166,29 @@ export function ForwardEditorModal({
       )}
       {errors.bindAddress && <div className="field-error">{errors.bindAddress}</div>}
 
-      {needsTarget && (
+      {type === "local" && (
+        <div className="segmented">
+          <button type="button" className={!targetIsSocket ? "active" : ""} onClick={() => setTargetIsSocket(false)}>
+            Host &amp; port
+          </button>
+          <button type="button" className={targetIsSocket ? "active" : ""} onClick={() => setTargetIsSocket(true)}>
+            Unix socket
+          </button>
+        </div>
+      )}
+
+      {socketTarget && (
+        <label className="field">
+          <span>Remote socket path</span>
+          <input
+            value={targetHostname}
+            placeholder="/var/run/docker.sock"
+            onChange={(e) => setTargetHostname(e.target.value)}
+          />
+        </label>
+      )}
+
+      {needsTarget && !socketTarget && (
         <div className="field-row">
           <label className="field" style={{ flex: 2 }}>
             <span>Target hostname</span>

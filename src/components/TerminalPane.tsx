@@ -23,17 +23,23 @@ import { HistoryNavigator, replaceLineKeystrokes } from "./terminalHistory";
 
 const HISTORY_LOAD_LIMIT = 1000;
 
+/** Types `command` at the prompt; with `run`, also presses Enter. */
+export type TerminalSender = (command: string, run: boolean) => void;
+
 export function TerminalPane({
   tab,
   visible,
   historyEpoch = 0,
   onHostKeyDecision,
+  registerSender,
 }: {
   tab: TerminalTab;
   visible: boolean;
   /** Bumped by the workspace to make open panes drop a cleared history. */
   historyEpoch?: number;
   onHostKeyDecision: (decision: ReturnType<typeof parseHostKeyError>, retry: () => void) => void;
+  /** Hands the workspace a way to type a toolbox command into this tab; `null` on unmount. */
+  registerSender?: (tabId: string, sender: TerminalSender | null) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<Terminal | null>(null);
@@ -179,6 +185,24 @@ export function TerminalPane({
       return true;
     });
 
+    // Toolbox snippets arrive as a paste, so a multi-line snippet stays one
+    // edit under bracketed paste and the user can still change it before
+    // Enter. Running records the snippet itself in history: the echo of the
+    // paste has not come back yet, so the rendered line cannot be read.
+    registerSender?.(tab.tabId, (command, run) => {
+      if (!backendIdRef.current) return;
+      term.paste(command);
+      if (run) {
+        if (shellOwnsTheLine()) {
+          const stored = historyRef.current.record(command);
+          if (stored) commandHistoryRecord(tab.profileId, stored).catch(() => {});
+        }
+        endOfLine();
+        send("\r");
+      }
+      term.focus();
+    });
+
     // Right-click pastes immediately, matching the convention most SSH/terminal
     // tools on Windows use (PuTTY, mintty) instead of a native context menu.
     const handleContextMenu = (e: MouseEvent) => {
@@ -222,6 +246,9 @@ export function TerminalPane({
     connect();
 
     const resizeObserver = new ResizeObserver(() => {
+      // Hidden (another tab or another section): there is no size to fit to,
+      // and resizing the remote PTY to it would garble the shell.
+      if (!containerRef.current || containerRef.current.clientWidth === 0) return;
       fit.fit();
       if (backendIdRef.current) {
         terminalResize(backendIdRef.current, term.cols, term.rows);
@@ -231,6 +258,7 @@ export function TerminalPane({
 
     return () => {
       resizeObserver.disconnect();
+      registerSender?.(tab.tabId, null);
       containerRef.current?.removeEventListener("contextmenu", handleContextMenu);
       if (backendIdRef.current) terminalClose(backendIdRef.current);
       term.dispose();

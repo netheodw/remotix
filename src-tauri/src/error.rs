@@ -30,6 +30,17 @@ pub enum AppError {
     #[error("incorrect master password")]
     IncorrectPassword,
 
+    /// Windows Hello unlock is refused because the master password has not
+    /// been typed for six months (or ever, since Hello was turned on).
+    #[error("master password required")]
+    MasterPasswordRequired,
+
+    #[error("windows hello unavailable: {0}")]
+    BiometricUnavailable(String),
+
+    #[error("windows hello cancelled")]
+    BiometricCancelled,
+
     #[error("too many attempts, try again in {retry_after_secs}s")]
     RateLimited { retry_after_secs: u64 },
 

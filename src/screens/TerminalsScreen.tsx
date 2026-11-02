@@ -1,6 +1,7 @@
 import { open as openFileDialog } from "@tauri-apps/plugin-dialog";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  profilesCreateDesktopShortcut,
   profilesDelete,
   profilesDuplicate,
   profilesMoveToGroup,
@@ -86,6 +87,7 @@ export function TerminalsScreen({
   const visibleIds = useMemo(() => visibleProfiles.map((p) => p.id), [visibleProfiles]);
   const selection = useRowSelection(visibleIds);
   const [moveError, setMoveError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const moveProfiles = async (ids: string[], groupId: string | null) => {
     setMoveError(null);
@@ -149,6 +151,11 @@ export function TerminalsScreen({
         </div>
 
         {moveError && <div className="field-error list-error">{moveError}</div>}
+        {notice && (
+          <div className="hint list-error" onClick={() => setNotice(null)} title="Dismiss">
+            {notice}
+          </div>
+        )}
 
         {profiles.length === 0 ? (
           <div className="empty-state">
@@ -230,6 +237,19 @@ export function TerminalsScreen({
                       }}
                     >
                       Duplicate
+                    </button>
+                    <button
+                      title="Create a desktop shortcut that opens this terminal"
+                      onClick={async () => {
+                        try {
+                          const path = await profilesCreateDesktopShortcut(p.id);
+                          setNotice(`Shortcut created: ${path}`);
+                        } catch (e) {
+                          setNotice(`Could not create the shortcut: ${errorMessage(e)}`);
+                        }
+                      }}
+                    >
+                      Shortcut
                     </button>
                     <button className="danger" onClick={() => setDeletingProfile(p)}>
                       Delete

@@ -87,6 +87,21 @@ pub fn vault_check_aad(aad_version: i64) -> Vec<u8> {
     format!("vault-check:v{aad_version}").into_bytes()
 }
 
+pub fn hello_wrap_aad(aad_version: i64) -> Vec<u8> {
+    format!("vault-hello:v{aad_version}").into_bytes()
+}
+
+/// Turns a Windows Hello signature over the stored challenge into the key
+/// that wraps the vault key. The signature is deterministic (RSA PKCS#1
+/// v1.5) and already high-entropy, so a domain-separated SHA-256 suffices.
+pub fn hello_wrapping_key(signature: &[u8]) -> VaultKey {
+    use sha2::{Digest, Sha256};
+    let mut hasher = Sha256::new();
+    hasher.update(b"remotix-hello-wrap-v1");
+    hasher.update(signature);
+    VaultKey(hasher.finalize().into())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

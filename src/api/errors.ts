@@ -36,6 +36,8 @@ export function parseHostKeyError(e: unknown): HostKeyDecision | null {
 const KIND_LABELS: Partial<Record<AppError["kind"], string>> = {
   vault_locked: "The vault is locked.",
   incorrect_password: "Incorrect master password.",
+  master_password_required: "Enter your master password. Remotix asks for it every 6 months, even with Windows Hello.",
+  biometric_cancelled: "Windows Hello was cancelled.",
   authentication_failed: "Authentication failed. Check the username, password, or key.",
   vault_not_initialized: "No vault has been created yet.",
 };

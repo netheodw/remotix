@@ -745,13 +745,23 @@ body,
   background: var(--bg-0);
 }
 
-.tab-strip-action {
+.tab-strip-actions {
   margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 6px;
+}
+
+.tab-strip-action {
   align-self: center;
   flex: 0 0 auto;
   padding: 4px 10px;
   font-size: 12px;
   white-space: nowrap;
+}
+.tab-strip-action.toggled {
+  color: var(--accent);
 }
 
 .tab-host {
@@ -782,6 +792,40 @@ body,
   border-left: 1px solid var(--border);
   padding-left: 16px;
   overflow-y: auto;
+}
+
+/* SFTP browser docked beside the terminal */
+.active-screen.with-files {
+  gap: 0;
+}
+.panel-splitter {
+  width: 12px;
+  flex-shrink: 0;
+  cursor: col-resize;
+  position: relative;
+}
+.panel-splitter::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 5px;
+  width: 2px;
+  border-radius: 1px;
+}
+.panel-splitter:hover::after,
+body.col-resizing .panel-splitter::after {
+  background: var(--accent);
+}
+body.col-resizing {
+  cursor: col-resize;
+  user-select: none;
+}
+.files-side-panel {
+  flex-shrink: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .active-forward-list {
@@ -830,6 +874,35 @@ body,
 .files-toolbar h1 {
   margin: 0;
   font-size: 18px;
+}
+.files-screen.panel {
+  gap: 8px;
+}
+.files-screen.panel .files-toolbar {
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.files-screen.panel .files-toolbar h1 {
+  font-size: 15px;
+}
+.files-screen.panel .files-host-picker {
+  flex: 1;
+  min-width: 0;
+}
+.files-screen.panel .file-pane-header {
+  flex-wrap: wrap;
+}
+.files-screen.panel .transfer-queue {
+  height: 140px;
+}
+
+.files-panes.stacked {
+  flex-direction: column;
+}
+.files-panes.stacked .file-transfer-bar {
+  width: auto;
+  height: 40px;
+  flex-direction: row;
 }
 
 .files-panes {
@@ -1201,4 +1274,135 @@ body,
 }
 .context-menu button.danger-text {
   color: var(--danger);
+}
+
+/* Terminal toolbox docked beside the terminal */
+.toolbox-panel {
+  width: 340px;
+  flex-shrink: 0;
+  border-left: 1px solid var(--border);
+  padding-left: 12px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.toolbox-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.toolbox-header h3 {
+  margin: 8px 0;
+}
+.toolbox-header-actions {
+  display: flex;
+  gap: 4px;
+}
+.toolbox-header-actions button {
+  padding: 4px 8px;
+  font-size: 12px;
+}
+.toolbox-search {
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 8px;
+}
+.toolbox-notice {
+  margin: 0 0 8px;
+}
+.toolbox-list {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  padding-right: 4px;
+}
+.toolbox-category {
+  margin-bottom: 4px;
+}
+.toolbox-category-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 6px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 13px;
+}
+.toolbox-category-row:hover {
+  background: var(--bg-2);
+}
+.toolbox-caret {
+  width: 10px;
+  color: var(--text-2);
+}
+.toolbox-category-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.toolbox-snippet {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 6px 5px 22px;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+.toolbox-snippet:hover {
+  background: var(--bg-2);
+}
+.toolbox-snippet.disabled {
+  cursor: default;
+}
+.toolbox-snippet-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.toolbox-snippet-name {
+  font-size: 13px;
+}
+.toolbox-snippet-command {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.toolbox-row-actions {
+  display: none;
+  gap: 2px;
+}
+.toolbox-row-actions button {
+  padding: 2px 6px;
+  font-size: 12px;
+}
+.toolbox-category-row:hover .toolbox-row-actions,
+.toolbox-snippet:hover .toolbox-row-actions {
+  display: flex;
+}
+.toolbox-empty {
+  padding: 4px 6px 4px 22px;
+}
+.toolbox-preview {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px 10px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin: 4px 0 12px;
+}
+.toolbox-command-input {
+  font-family: var(--font-mono);
+}
+.toolbox-editor-hint {
+  margin: -4px 0 10px;
 }

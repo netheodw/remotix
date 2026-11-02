@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { localDiscardScratch, localFileMtime, sftpEditOpen } from "../api/commands";
 import { errorMessage, parseHostKeyError } from "../api/errors";
 import type { SshProfile } from "../api/types";
@@ -22,7 +22,17 @@ interface EditSession {
   savedCount: number;
 }
 
-export function FilesScreen() {
+export function FilesScreen({
+  variant = "screen",
+  preferredProfileId,
+  onOpenTerminal,
+}: {
+  /** "panel" is the narrow browser docked beside the terminal on the Active screen. */
+  variant?: "screen" | "panel";
+  /** The host of the terminal next to the panel: connected to when the panel opens. */
+  preferredProfileId?: string;
+  onOpenTerminal?: (profile: SshProfile) => void;
+} = {}) {
   const { profiles } = useData();
   const { tabs } = useTerminalTabs();
   const {
@@ -39,8 +49,10 @@ export function FilesScreen() {
     remoteSelection,
     setRemoteSelection,
     enqueue,
+    activeTransfers,
     completionToken,
   } = useFiles();
+  const panel = variant === "panel";
 
   const [picked, setPicked] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -58,7 +70,9 @@ export function FilesScreen() {
   const liveProfileIds = new Set(tabs.filter((t) => t.status === "connected").map((t) => t.profileId));
   const activeProfiles = profiles.filter((p) => liveProfileIds.has(p.id));
   const otherProfiles = profiles.filter((p) => !liveProfileIds.has(p.id));
-  const selectedId = picked || activeProfiles[0]?.id || profiles[0]?.id || "";
+  const preferredProfile = profiles.find((p) => p.id === preferredProfileId) ?? null;
+  const selectedId = picked || preferredProfile?.id || activeProfiles[0]?.id || profiles[0]?.id || "";
+  const sessionProfile = session ? (profiles.find((p) => p.id === session.profileId) ?? null) : null;
 
   // Polls each open scratch copy; a changed mtime means the editor saved, so
   // the file goes back up through the normal transfer queue.
@@ -93,6 +107,22 @@ export function FilesScreen() {
       if (decision) setHostKey({ decision, profile });
       else setError(errorMessage(e));
     }
+  };
+
+  // Opening the panel beside a terminal browses that terminal's host. Only
+  // once per mount, so a deliberate Disconnect is not undone.
+  const autoConnected = useRef(false);
+  useEffect(() => {
+    if (!panel || autoConnected.current || session || status !== "idle" || !preferredProfile) return;
+    autoConnected.current = true;
+    runConnect(preferredProfile);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [panel, session, status, preferredProfile]);
+
+  const switchToPreferred = () => {
+    if (!preferredProfile) return;
+    disconnect();
+    runConnect(preferredProfile);
   };
 
   const openForEditing = async (entry: FileEntry) => {
@@ -154,7 +184,7 @@ export function FilesScreen() {
   );
 
   return (
-    <div className="files-screen">
+    <div className={`files-screen${panel ? " panel" : ""}`}>
       <div className="files-toolbar">
         <h1>Files</h1>
         {session ? (
@@ -164,6 +194,27 @@ export function FilesScreen() {
               {session.profileName} — {session.hostLabel}
             </span>
             <button onClick={disconnect}>Disconnect</button>
+            {panel && preferredProfile && preferredProfile.id !== session.profileId && (
+              <button
+                disabled={activeTransfers > 0}
+                title={
+                  activeTransfers > 0
+                    ? "Wait for the running transfers to finish first"
+                    : `Browse the files of ${preferredProfile.name}, the host of the current terminal`
+                }
+                onClick={switchToPreferred}
+              >
+                Switch to {preferredProfile.name}
+              </button>
+            )}
+            {!panel && onOpenTerminal && sessionProfile && (
+              <button
+                title="Open an SSH terminal for this host beside the file browser"
+                onClick={() => onOpenTerminal(sessionProfile)}
+              >
+                Open terminal
+              </button>
+            )}
           </>
         ) : (
           <>
@@ -216,7 +267,7 @@ export function FilesScreen() {
         </div>
       )}
 
-      <div className="files-panes">
+      <div className={`files-panes${panel ? " stacked" : ""}`}>
         <FilePane
           source={localSource}
           cwd={localCwd}
@@ -234,7 +285,7 @@ export function FilesScreen() {
             disabled={!session || localSelection.size === 0}
             onClick={() => transfer("upload")}
           >
-            →
+            {panel ? "↓" : "→"}
           </button>
           <button
             className="ghost"
@@ -242,7 +293,7 @@ export function FilesScreen() {
             disabled={!session || remoteSelection.size === 0}
             onClick={() => transfer("download")}
           >
-            ←
+            {panel ? "↑" : "←"}
           </button>
         </div>
 

@@ -43,6 +43,9 @@ component of any kind - the only network traffic Remotix generates is the direct
   [Dynamic forwarding limitations](#dynamic-forwarding-limitations) below).
 - Bounded exponential-backoff reconnect for forwards, which intentionally does **not** auto-retry after a host-key
   mismatch or an authentication failure.
+- An SFTP file browser (the **Files** screen): dual local/remote panes, directory navigation on both sides,
+  upload/download through a cancelable transfer queue, remote delete, and remote edit - a file is downloaded to a
+  scratch directory, opened in your OS editor, and re-uploaded automatically when you save it.
 
 ## Prerequisites
 
@@ -121,8 +124,9 @@ AppImage/`.deb`/`.rpm` on Linux (whichever the build environment supports).
 src/                        React + TypeScript UI
   api/                       typed IPC wrappers + TS types mirroring the Rust domain types
   components/                shared UI (dialogs, group tree, xterm wrapper, status badges)
-  screens/                   one file per major screen (vault setup/unlock, terminals, forwards, active, settings)
-  state/                     React context providers (vault status, cached lists, forward status stream, terminal tabs)
+    files/                   SFTP panes, transfer queue panel, path/sort helpers
+  screens/                   one file per major screen (vault setup/unlock, terminals, files, forwards, active, settings)
+  state/                     React context providers (vault status, cached lists, forward status stream, terminal tabs, files session)
 
 src-tauri/src/
   commands/                  thin #[tauri::command] functions - validate input shape, delegate, map errors
@@ -131,13 +135,16 @@ src-tauri/src/
   vault/                     Argon2id + AES-256-GCM crypto and the lock/unlock state machine
   ssh/                       ssh2 session/handshake, host-key verification, interactive PTY terminal,
                               local/remote/dynamic forwarding, the SOCKS5 parser, and the session/forward registry
+  sftp/                      SFTP browsing session, transfer worker (separate connection), remote-edit scratch files
+  importers/                 Termius JSON export parsing (read only on the Rust side, so plaintext never reaches the UI)
   db/                        SQLite pool + migrations
   error.rs                   the single AppError type returned across IPC (never carries secrets)
   state.rs                   the app-wide Tauri state (db pool, vault manager, ssh manager)
 ```
 
-Rust ↔ frontend communication is exclusively Tauri's typed `#[tauri::command]` functions plus `tauri::ipc::Channel`
-for streaming terminal output and per-forward status - never a REST call, WebSocket, or localhost server.
+Rust ↔ frontend communication is exclusively Tauri's typed `#[tauri::command]` functions, `tauri::ipc::Channel`
+for streaming (terminal output, test-connection stages, SFTP transfer progress), and app-wide Tauri events for
+forward status - never a REST call, WebSocket, or localhost server.
 
 ## Database and vault location
 
@@ -234,11 +241,12 @@ Clear history button, and the settings toggle are the ways around that.
 **Implemented and tested this milestone:** encrypted vault lifecycle; nested terminal groups and SSH profiles
 (password / key / key+passphrase); host-key trust-on-first-use and changed-key blocking; interactive PTY terminals in
 tabs with per-profile command history; nested port-forward groups; local and remote TCP forwarding with reconnect/backoff; dynamic SOCKS5 forwarding;
-local settings; Windows and Linux packaging via the Tauri bundler.
+the SFTP file browser with transfer queue and remote edit; Termius JSON import; local settings; Windows and Linux
+packaging via the Tauri bundler.
 
 **Deferred out of scope, per the product brief:** mobile clients, cloud sync, accounts/login, team or shared vaults,
-collaboration features, a browser-based admin console, SFTP/file transfer, serial connections, credential sharing,
-plugins, and AI features.
+collaboration features, a browser-based admin console, serial connections, credential sharing, plugins, and AI
+features.
 
 **Known gaps to be aware of:**
 
@@ -272,5 +280,8 @@ With a real SSH server available (a spare Linux VM, container, or cloud instance
    through the tunnel; Stop it and confirm the port is released.
 8. Repeat for a **Remote** forward and, if desired, a **Dynamic** forward (point a SOCKS5-aware client at
    `127.0.0.1:<port>` and confirm it can reach the network through the SSH host).
-9. Lock the vault while a terminal/forward is active and confirm both are torn down and the unlock screen returns;
-   unlock again and confirm profiles are intact but nothing auto-reconnects.
+9. Open the **Files** screen, connect to your test server, browse both panes, and upload/download a file - confirm
+   the transfer appears in the queue with progress, and that Cancel stops an in-flight transfer. Use **Edit** on a
+   small remote text file, confirm it opens in your OS editor, save it, and confirm Remotix re-uploads it.
+10. Lock the vault while a terminal/forward is active and confirm both are torn down and the unlock screen returns;
+    unlock again and confirm profiles are intact but nothing auto-reconnects.

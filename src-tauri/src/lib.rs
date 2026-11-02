@@ -3,6 +3,7 @@ pub mod db;
 pub mod domain;
 mod error;
 mod importers;
+mod platform;
 mod repositories;
 mod sftp;
 mod ssh;
@@ -21,6 +22,16 @@ pub fn run() {
         .init();
 
     tauri::Builder::default()
+        // Must be the first plugin. A second launch (typically a desktop
+        // shortcut) hands its arguments to the running instance and exits.
+        .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+            commands::launch::handle_launch_args(app, &argv, true);
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.unminimize();
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+        }))
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_clipboard_manager::init())
@@ -30,6 +41,7 @@ pub fn run() {
             let db_path = data_dir.join("remotix.db");
             let pool = db::init_pool(&db_path).expect("failed to initialize local database");
             app.manage(state::AppState::new(pool));
+            commands::launch::handle_launch_args(app.handle(), std::env::args(), false);
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -43,6 +55,12 @@ pub fn run() {
             commands::vault::vault_setup,
             commands::vault::vault_unlock,
             commands::vault::vault_lock,
+            commands::vault::vault_hello_status,
+            commands::vault::vault_hello_enable,
+            commands::vault::vault_hello_disable,
+            commands::vault::vault_unlock_hello,
+            commands::launch::launch_take_pending_profile,
+            commands::launch::profiles_create_desktop_shortcut,
             commands::groups::terminal_groups_list,
             commands::groups::terminal_groups_create,
             commands::groups::terminal_groups_update,
@@ -81,6 +99,14 @@ pub fn run() {
             commands::command_history::command_history_list,
             commands::command_history::command_history_record,
             commands::command_history::command_history_clear,
+            commands::snippets::snippet_categories_list,
+            commands::snippets::snippet_categories_create,
+            commands::snippets::snippet_categories_rename,
+            commands::snippets::snippet_categories_delete,
+            commands::snippets::snippets_list,
+            commands::snippets::snippets_create,
+            commands::snippets::snippets_update,
+            commands::snippets::snippets_delete,
             commands::sftp::sftp_connect,
             commands::sftp::sftp_disconnect,
             commands::sftp::sftp_list,
