@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use tauri::{Manager, State};
+use tauri_plugin_autostart::ManagerExt;
 
 use crate::error::{AppError, AppResult};
 use crate::state::AppState;
@@ -45,4 +46,21 @@ pub fn app_data_dir(app: tauri::AppHandle) -> AppResult<String> {
         .app_data_dir()
         .map_err(|e| AppError::Internal(e.to_string()))?;
     Ok(dir.to_string_lossy().to_string())
+}
+
+/// Whether Remotix starts (minimized to the tray) when the user logs in.
+/// Backed by the OS itself (the Run registry key on Windows, an
+/// `~/.config/autostart` entry on Linux), not by `app_settings`.
+#[tauri::command]
+pub fn autostart_is_enabled(app: tauri::AppHandle) -> AppResult<bool> {
+    app.autolaunch()
+        .is_enabled()
+        .map_err(|e| AppError::Internal(e.to_string()))
+}
+
+#[tauri::command]
+pub fn autostart_set(app: tauri::AppHandle, enabled: bool) -> AppResult<()> {
+    let autolaunch = app.autolaunch();
+    let result = if enabled { autolaunch.enable() } else { autolaunch.disable() };
+    result.map_err(|e| AppError::Internal(e.to_string()))
 }

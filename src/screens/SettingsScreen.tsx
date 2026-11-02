@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import {
   appDataDir,
+  autostartIsEnabled,
+  autostartSet,
   settingsGetAll,
   settingsSet,
   vaultHelloDisable,
@@ -100,6 +102,11 @@ export function SettingsScreen() {
           />
           Confirm before closing the app while sessions or forwards are active
         </label>
+        <AutostartRow />
+        <p className="hint">
+          Closing the window keeps Remotix running in the system tray, still unlocked, with your terminals and forwards
+          open. Click the tray icon to bring it back, or use Quit Remotix in the tray menu to exit.
+        </p>
       </section>
 
       <WindowsHelloSection />
@@ -123,6 +130,43 @@ export function SettingsScreen() {
         </button>
       </div>
     </div>
+  );
+}
+
+/** Applied immediately: the OS owns this setting, not `app_settings`. */
+function AutostartRow() {
+  const [enabled, setEnabled] = useState<boolean | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    autostartIsEnabled()
+      .then(setEnabled)
+      .catch((e) => setError(errorMessage(e)));
+  }, []);
+
+  const toggle = async (next: boolean) => {
+    setError(null);
+    try {
+      await autostartSet(next);
+      setEnabled(next);
+    } catch (e) {
+      setError(errorMessage(e));
+    }
+  };
+
+  return (
+    <>
+      <label className="checkbox-row">
+        <input
+          type="checkbox"
+          disabled={enabled === null}
+          checked={enabled ?? false}
+          onChange={(e) => toggle(e.target.checked)}
+        />
+        Start Remotix minimized to the tray when I sign in
+      </label>
+      {error && <div className="field-error">{error}</div>}
+    </>
   );
 }
 

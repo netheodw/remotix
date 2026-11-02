@@ -175,4 +175,6 @@ export const localDiscardScratch = (path: string) => invoke<void>("local_discard
 // --- Settings ---
 export const settingsGetAll = () => invoke<Record<string, string>>("settings_get_all");
 export const settingsSet = (key: string, value: string) => invoke<void>("settings_set", { key, value });
+export const autostartIsEnabled = () => invoke<boolean>("autostart_is_enabled");
+export const autostartSet = (enabled: boolean) => invoke<void>("autostart_set", { enabled });
 export const appDataDir = () => invoke<string>("app_data_dir");

@@ -9,6 +9,7 @@ mod sftp;
 mod ssh;
 mod state;
 pub mod testing;
+mod tray;
 mod util;
 mod validation;
 pub mod vault;
@@ -26,12 +27,12 @@ pub fn run() {
         // shortcut) hands its arguments to the running instance and exits.
         .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
             commands::launch::handle_launch_args(app, &argv, true);
-            if let Some(window) = app.get_webview_window("main") {
-                let _ = window.unminimize();
-                let _ = window.show();
-                let _ = window.set_focus();
-            }
+            tray::show_main_window(app);
         }))
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            Some(vec![tray::MINIMIZED_FLAG]),
+        ))
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_clipboard_manager::init())
@@ -42,13 +43,26 @@ pub fn run() {
             let pool = db::init_pool(&db_path).expect("failed to initialize local database");
             app.manage(state::AppState::new(pool));
             commands::launch::handle_launch_args(app.handle(), std::env::args(), false);
+            tray::init(app)?;
+            // The window starts hidden (tauri.conf.json) so a login start
+            // never flashes it before going to the tray.
+            if !std::env::args().any(|a| a == tray::MINIMIZED_FLAG) {
+                tray::show_main_window(app.handle());
+            }
             Ok(())
         })
-        .on_window_event(|window, event| {
-            if let tauri::WindowEvent::Destroyed = event {
+        .on_window_event(|window, event| match event {
+            // Close hides to the tray; the vault and live sessions are kept
+            // so reopening shows exactly where the user left off.
+            tauri::WindowEvent::CloseRequested { api, .. } => {
+                api.prevent_close();
+                let _ = window.hide();
+            }
+            tauri::WindowEvent::Destroyed => {
                 let state = window.state::<state::AppState>();
                 state.ssh.stop_all();
             }
+            _ => {}
         })
         .invoke_handler(tauri::generate_handler![
             commands::vault::vault_status,
@@ -125,6 +139,8 @@ pub fn run() {
             commands::settings::settings_get_all,
             commands::settings::settings_set,
             commands::settings::app_data_dir,
+            commands::settings::autostart_is_enabled,
+            commands::settings::autostart_set,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
