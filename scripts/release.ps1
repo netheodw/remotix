@@ -21,7 +21,10 @@ param(
     [switch]$SkipBuild,
     [string]$Notes = ""
 )
-$ErrorActionPreference = "Stop"
+# Not "Stop": Windows PowerShell 5.1 then treats any stderr line from git/gh
+# (progress, "release not found") as a fatal error. Every native call below
+# checks $LASTEXITCODE instead.
+$ErrorActionPreference = "Continue"
 Set-Location (Split-Path -Parent $PSScriptRoot)
 
 $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
