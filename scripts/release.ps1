@@ -36,7 +36,8 @@ if ($LASTEXITCODE -ne 0) { throw "Log in to GitHub first: gh auth login" }
 if (git status --porcelain --untracked-files=no) {
     throw "There are uncommitted changes. Commit them first, so the installer matches a commit."
 }
-if (gh release view $tag *> $null; $LASTEXITCODE -eq 0) {
+gh release view $tag *> $null
+if ($LASTEXITCODE -eq 0) {
     throw "Release $tag already exists. Bump the version in package.json, tauri.conf.json and Cargo.toml."
 }
 
