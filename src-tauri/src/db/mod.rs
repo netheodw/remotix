@@ -15,6 +15,16 @@ const MIGRATIONS: &[(&str, &str)] = &[
         include_str!("migrations/0003_windows_hello.sql"),
     ),
     ("0004_snippets", include_str!("migrations/0004_snippets.sql")),
+    (
+        "0005_sudo_passwords",
+        include_str!("migrations/0005_sudo_passwords.sql"),
+    ),
+    ("0006_session_log", include_str!("migrations/0006_session_log.sql")),
+    ("0007_notes", include_str!("migrations/0007_notes.sql")),
+    (
+        "0008_forward_local_hostname",
+        include_str!("migrations/0008_forward_local_hostname.sql"),
+    ),
 ];
 
 pub fn init_pool(db_path: &Path) -> rusqlite::Result<Pool> {

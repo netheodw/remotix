@@ -3,4 +3,5 @@
 //! the feature as unavailable, so callers never need their own `cfg`.
 
 pub mod hello;
+pub mod hosts;
 pub mod shortcut;

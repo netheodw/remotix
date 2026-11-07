@@ -31,6 +31,8 @@ export interface SshProfile {
   last_connected_at: string | null;
   created_at: string;
   updated_at: string;
+  /** Free text; saved with `profilesSetNotes`, not with create/update. */
+  notes: string;
 }
 
 export type AuthSecretInput =
@@ -70,6 +72,10 @@ export interface PortForward {
   sort_order: number;
   created_at: string;
   updated_at: string;
+  /** Free text; saved with `forwardsSetNotes`, not with create/update. */
+  notes: string;
+  /** e.g. "ifg-portainer.local", mapped to bind_address in the hosts file. Set with `forwardsSetLocalHostname`. */
+  local_hostname: string | null;
 }
 
 export interface NewPortForwardInput {
@@ -206,7 +212,42 @@ export type TestConnectionStage =
 export type TerminalEvent =
   | { type: "status"; state: string; message: string | null }
   | { type: "output"; data_b64: string }
-  | { type: "closed"; reason: string };
+  | { type: "closed"; reason: string }
+  /** A sudo password was saved for the profile, or the saved one was rejected and deleted. */
+  | { type: "sudo"; saved: boolean };
+
+/** Never the password itself: that stays in Rust. */
+export interface SudoStatus {
+  saved: boolean;
+  /** false: sudo asks every time and nothing is saved. */
+  remember: boolean;
+}
+
+export type TerminalSessionStatus = "connecting" | "connected" | "failed" | "closed" | "interrupted";
+
+/** One terminal session in the session log. */
+export interface TerminalSessionSummary {
+  id: string;
+  /** null once the profile was deleted; the copied name/host stay. */
+  ssh_profile_id: string | null;
+  profile_name: string;
+  hostname: string;
+  port: number;
+  username: string;
+  started_at: string;
+  connected_at: string | null;
+  ended_at: string | null;
+  status: TerminalSessionStatus;
+  end_reason: string | null;
+  command_count: number;
+}
+
+export interface SessionCommand {
+  id: string;
+  session_id: string;
+  command: string;
+  executed_at: string;
+}
 
 export interface CommandHistoryEntry {
   id: string;

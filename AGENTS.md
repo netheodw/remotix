@@ -96,6 +96,11 @@ detail goes only to `tracing`.
   send `AuthSecretInput { kind: "unchanged" }` to keep the stored secret. The one deliberate exception is
   `profiles_reveal_password` (the eye icon in the profile editor): it returns a stored *password* only, never a
   private key or passphrase, and needs an unlocked vault. Don't widen it to other secret kinds.
+- Sudo passwords (`sudo_passwords` table, `SudoRepository`, `ssh/sudo.rs`): the terminal thread watches output
+  for a `[sudo] password for ...:` prompt. With a saved password it answers the prompt itself; otherwise it
+  captures what the user types there and saves it if sudo doesn't reject it within `VERIFY_WINDOW`. A rejected
+  saved password is deleted. The UI only sees `SudoStatus { saved, remember }` and can forget the password or
+  turn `remember` off (which also deletes it). Never add a command that returns the value.
 - Termius import files are read only on the Rust side (`importers/`), for the same reason.
 - `tests/vault_security.rs` scans the raw DB and WAL bytes to confirm no plaintext appears.
 - Windows Hello unlock (`platform/hello.rs`, table `vault_hello`): the vault key is AES-GCM wrapped under
@@ -143,6 +148,14 @@ transaction, and is recorded in `schema_migrations`. App settings are plain key/
 - Command history: `terminalBuffer.ts` captures the command by reading the rendered xterm line (not by
   replaying keystrokes). `terminalHistory.ts` drives Up/Down. `normalizeCommand()` there must stay in sync with
   `normalize` in `src-tauri/src/repositories/command_history_repo.rs`.
+- Session log (History screen, `HistoryScreen.tsx`): `ssh/terminal.rs` writes a `terminal_sessions` row for
+  every terminal (id = the terminal id from `terminal_open`), marks it connected, and ends it on the first
+  `Closed` event. Rows still open at startup become `interrupted`. `TerminalPane` sends each executed command to
+  `session_log_record`, whatever the Up/Down history setting says. Commands use the same `normalize` rules as the
+  Up/Down history, but repeats are kept. The rows copy the profile's name and host, so they survive deleting the
+  profile.
+- Notes: `ssh_profiles.notes` / `port_forwards.notes` are saved only through `profiles_set_notes` /
+  `forwards_set_notes`. The editors call these after create/update, so the create/update inputs did not change.
 - Toolbox: `ToolboxPanel.tsx` shares the terminal side panel with Files (one or the other). Snippets and
   categories live in `snippets` / `snippet_categories` (migration `0004_snippets.sql` seeds the default Linux
   commands). `{{name}}` marks a placeholder, parsed in `components/toolbox.ts`. Commands reach the tab through

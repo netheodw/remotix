@@ -118,6 +118,7 @@ impl ProfileRepository {
 
     pub fn delete(conn: &Connection, id: &str) -> AppResult<()> {
         let existing = Self::existing_secrets(conn, id)?;
+        crate::repositories::SudoRepository::delete_for_profile(conn, id)?;
         conn.execute("DELETE FROM ssh_profiles WHERE id = ?1", [id])?;
         if let Some(sid) = existing.secret_id {
             SecretRepository::delete(conn, &sid)?;
@@ -136,6 +137,18 @@ impl ProfileRepository {
             "UPDATE ssh_profiles SET terminal_group_id = ?1, updated_at = ?2 WHERE id = ?3",
             rusqlite::params![group_id, now_iso(), id],
         )?;
+        Self::get(conn, id)
+    }
+
+    pub fn set_notes(conn: &Connection, id: &str, notes: &str) -> AppResult<SshProfile> {
+        let notes = crate::validation::validate_notes(notes)?;
+        let changed = conn.execute(
+            "UPDATE ssh_profiles SET notes = ?1, updated_at = ?2 WHERE id = ?3",
+            rusqlite::params![notes, now_iso(), id],
+        )?;
+        if changed == 0 {
+            return Err(AppError::NotFound("ssh profile".into()));
+        }
         Self::get(conn, id)
     }
 
@@ -321,7 +334,7 @@ impl ProfileRepository {
     }
 
     fn select_clause() -> &'static str {
-        "SELECT id, terminal_group_id, name, hostname, port, username, authentication_kind, secret_id, passphrase_secret_id, terminal_type, sort_order, last_status, last_connected_at, created_at, updated_at FROM ssh_profiles"
+        "SELECT id, terminal_group_id, name, hostname, port, username, authentication_kind, secret_id, passphrase_secret_id, terminal_type, sort_order, last_status, last_connected_at, created_at, updated_at, notes FROM ssh_profiles"
     }
 
     fn map_row(row: &Row) -> rusqlite::Result<SshProfile> {
@@ -344,6 +357,7 @@ impl ProfileRepository {
             last_connected_at: row.get(12)?,
             created_at: row.get(13)?,
             updated_at: row.get(14)?,
+            notes: row.get(15)?,
         })
     }
 }
@@ -429,6 +443,34 @@ mod tests {
         assert_eq!(updated.name, "Prod Renamed");
         let material = ProfileRepository::load_auth_material(&conn, &vault, &profile.id).unwrap();
         assert!(matches!(material, crate::ssh::session::AuthMaterial::Password(p) if p == "s3cret"));
+    }
+
+    #[test]
+    fn notes_are_stored_trimmed_and_survive_an_update() {
+        let (_dir, pool, vault) = setup();
+        let conn = pool.get().unwrap();
+        let profile = ProfileRepository::create(&conn, &vault, password_input("Prod", "s3cret")).unwrap();
+        assert_eq!(profile.notes, "");
+        let p = ProfileRepository::set_notes(&conn, &profile.id, "runs portainer\n\n").unwrap();
+        assert_eq!(p.notes, "runs portainer");
+        assert!(ProfileRepository::set_notes(&conn, &profile.id, &"x".repeat(10_001)).is_err());
+        assert!(ProfileRepository::set_notes(&conn, "missing", "x").is_err());
+        let updated = ProfileRepository::update(
+            &conn,
+            &vault,
+            UpdateSshProfileInput {
+                id: profile.id.clone(),
+                terminal_group_id: None,
+                name: "Prod 2".into(),
+                hostname: "example.com".into(),
+                port: 22,
+                username: "root".into(),
+                terminal_type: None,
+                secret: AuthSecretInput::Unchanged,
+            },
+        )
+        .unwrap();
+        assert_eq!(updated.notes, "runs portainer");
     }
 
     #[test]

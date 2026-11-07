@@ -4,6 +4,7 @@ import {
   profilesCreate,
   profilesImportPrivateKeyFile,
   profilesRevealPassword,
+  profilesSetNotes,
   profilesUpdate,
 } from "../api/commands";
 import { errorMessage } from "../api/errors";
@@ -65,6 +66,7 @@ export function ProfileEditorModal({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [notes, setNotes] = useState(profile?.notes ?? "");
   const [revealedPassword, setRevealedPassword] = useState<string | null>(null);
   const [revealError, setRevealError] = useState<string | null>(null);
 
@@ -131,9 +133,10 @@ export function ProfileEditorModal({
         terminal_type: terminalType,
         secret: buildSecret(),
       };
-      const saved = profile
+      let saved = profile
         ? await profilesUpdate({ id: profile.id, ...base })
         : await profilesCreate(base);
+      if (notes.trimEnd() !== saved.notes) saved = await profilesSetNotes(saved.id, notes);
       await refreshProfiles();
       onSaved(saved);
     } catch (e) {
@@ -272,6 +275,19 @@ export function ProfileEditorModal({
           <span>Terminal type</span>
           <input value={terminalType} onChange={(e) => setTerminalType(e.target.value)} />
         </label>
+      </div>
+
+      <div className="form-section">
+        <h3>Notes</h3>
+      <label className="field">
+        <textarea
+          rows={4}
+          value={notes}
+          placeholder="What it is for, who to ask, how to use it... (not for passwords)"
+          onChange={(e) => setNotes(e.target.value)}
+        />
+      </label>
+
       </div>
 
       {formError && <div className="field-error">{formError}</div>}

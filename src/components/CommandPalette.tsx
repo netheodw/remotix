@@ -22,6 +22,7 @@ export function CommandPalette({ onClose, onNavigate }: { onClose: () => void; o
       { id: "nav-terminals", label: "Go to Terminals", hint: "navigation", run: () => onNavigate("terminals") },
       { id: "nav-forwards", label: "Go to Port Forwards", hint: "navigation", run: () => onNavigate("forwards") },
       { id: "nav-active", label: "Go to Active", hint: "navigation", run: () => onNavigate("active") },
+      { id: "nav-history", label: "Go to History", hint: "navigation", run: () => onNavigate("history") },
       { id: "nav-settings", label: "Go to Settings", hint: "navigation", run: () => onNavigate("settings") },
     ];
     profiles.forEach((p) =>

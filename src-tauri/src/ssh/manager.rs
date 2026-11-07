@@ -36,7 +36,7 @@ impl SshManager {
         rows: u32,
         emit: impl Fn(TerminalEvent) + Send + 'static,
     ) {
-        let handle = terminal::spawn_terminal(pool, vault, profile_id, cols, rows, emit);
+        let handle = terminal::spawn_terminal(pool, vault, id.clone(), profile_id, cols, rows, emit);
         self.terminals.lock().unwrap().insert(id, handle);
     }
 

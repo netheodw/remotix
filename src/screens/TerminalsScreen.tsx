@@ -209,7 +209,14 @@ export function TerminalsScreen({
                       onChange={() => selection.toggle(p.id)}
                     />
                   </td>
-                  <td>{p.name}</td>
+                  <td>
+                    {p.name}
+                    {p.notes && (
+                      <div className="row-notes" title={p.notes}>
+                        {p.notes}
+                      </div>
+                    )}
+                  </td>
                   <td>
                     {p.hostname}:{p.port}
                   </td>

@@ -1406,3 +1406,60 @@ body.col-resizing {
 .toolbox-editor-hint {
   margin: -4px 0 10px;
 }
+
+/* --- Session history --- */
+.history-screen {
+  min-width: 0;
+}
+.history-actions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+.history-table .caret-col {
+  width: 18px;
+  padding-right: 0;
+  color: var(--text-2);
+}
+.history-row {
+  cursor: pointer;
+}
+.history-row:hover td {
+  background: var(--bg-2);
+}
+.history-detail td {
+  background: var(--bg-1, transparent);
+  padding-top: 4px;
+}
+.history-commands {
+  margin: 6px 0 4px;
+  padding-left: 28px;
+  font-size: 12px;
+}
+.history-commands li {
+  padding: 2px 0;
+}
+.history-commands li.match code {
+  background: var(--bg-3);
+}
+.history-time {
+  display: inline-block;
+  min-width: 150px;
+  color: var(--text-2);
+  margin-right: 10px;
+}
+.history-commands code {
+  font-family: "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* One line of a profile's / forward's notes under its name; full text on hover. */
+.row-notes {
+  max-width: 320px;
+  color: var(--text-2);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

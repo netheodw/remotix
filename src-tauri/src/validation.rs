@@ -92,3 +92,15 @@ mod tests {
         assert!(validate_port(65535).is_ok());
     }
 }
+
+/// Notes are plain text up to [`MAX_NOTES_CHARS`] characters; trailing
+/// whitespace is trimmed so an emptied box stores "".
+pub const MAX_NOTES_CHARS: usize = 10_000;
+
+pub fn validate_notes(value: &str) -> AppResult<String> {
+    let trimmed = value.trim_end();
+    if trimmed.chars().count() > MAX_NOTES_CHARS {
+        return Err(AppError::Validation(format!("notes must be at most {MAX_NOTES_CHARS} characters")));
+    }
+    Ok(trimmed.to_string())
+}

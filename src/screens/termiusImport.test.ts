@@ -45,6 +45,8 @@ function existingForward(name: string, listen_port: number): PortForward {
     sort_order: 0,
     created_at: "",
     updated_at: "",
+    notes: "",
+    local_hostname: null,
   };
 }
 

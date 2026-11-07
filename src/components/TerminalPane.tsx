@@ -8,6 +8,7 @@ import { useEffect, useRef } from "react";
 import {
   commandHistoryList,
   commandHistoryRecord,
+  sessionLogRecord,
   settingsGetAll,
   terminalClose,
   terminalInput,
@@ -22,6 +23,32 @@ import { readLogicalLine, readPromptPrefix, stripPrompt } from "./terminalBuffer
 import { HistoryNavigator, replaceLineKeystrokes } from "./terminalHistory";
 
 const HISTORY_LOAD_LIMIT = 1000;
+const CLIPBOARD_ATTEMPTS = 4;
+const CLIPBOARD_RETRY_MS = 60;
+
+/**
+ * Reads the clipboard as text. On Windows another app (a clipboard manager,
+ * RDP, Office, the app that just copied) often holds the clipboard open for a
+ * moment, and the read then fails; those failures used to be swallowed, so
+ * paste "sometimes did nothing". Retry briefly, then fall back to the web
+ * clipboard API, which reads the same data through WebView2.
+ */
+async function readClipboardText(): Promise<string> {
+  let lastError: unknown = null;
+  for (let attempt = 0; attempt < CLIPBOARD_ATTEMPTS; attempt++) {
+    try {
+      return await readText();
+    } catch (e) {
+      lastError = e;
+      await new Promise((resolve) => setTimeout(resolve, CLIPBOARD_RETRY_MS));
+    }
+  }
+  try {
+    return await navigator.clipboard.readText();
+  } catch {
+    throw lastError;
+  }
+}
 
 /** Types `command` at the prompt; with `run`, also presses Enter. */
 export type TerminalSender = (command: string, run: boolean) => void;
@@ -103,7 +130,13 @@ export function TerminalPane({
     // a command line. Application cursor-key mode is deliberately *not* used
     // as a second signal: zsh's line editor turns it on at every prompt, so
     // gating on it would disable history for zsh users entirely.
-    const shellOwnsTheLine = () => historyEnabledRef.current && term.buffer.active.type === "normal";
+    const onShellBuffer = () => term.buffer.active.type === "normal";
+    const shellOwnsTheLine = () => historyEnabledRef.current && onShellBuffer();
+
+    /** Adds a command to the session log (History screen); independent of the Up/Down setting. */
+    const logCommand = (command: string) => {
+      if (backendIdRef.current) sessionLogRecord(backendIdRef.current, command).catch(() => {});
+    };
 
     /** Captures the prompt once per line, before any input is echoed back. */
     const markLineStarted = () => {
@@ -119,10 +152,11 @@ export function TerminalPane({
     };
 
     term.onData((data) => {
-      if (shellOwnsTheLine()) {
+      if (onShellBuffer()) {
         if (data === "\r" || data === "\n") {
           const command = promptRef.current === null ? null : currentInput();
-          const stored = command === null ? null : historyRef.current.record(command);
+          if (command !== null) logCommand(command);
+          const stored = command === null || !historyEnabledRef.current ? null : historyRef.current.record(command);
           if (stored) commandHistoryRecord(tab.profileId, stored).catch(() => {});
           endOfLine();
         } else if (data === "\x03") {
@@ -150,11 +184,15 @@ export function TerminalPane({
     };
 
     const pasteFromClipboard = () => {
-      readText()
+      readClipboardText()
         .then((text) => {
           if (text) term.paste(text);
         })
-        .catch(() => {});
+        .catch(() => {
+          // Nothing pasteable: an image or files, or the clipboard stayed locked.
+          term.write("");
+        });
+      term.focus();
     };
 
     // Ctrl+C copies the current selection instead of sending SIGINT (only
@@ -193,6 +231,7 @@ export function TerminalPane({
       if (!backendIdRef.current) return;
       term.paste(command);
       if (run) {
+        if (onShellBuffer()) logCommand(command);
         if (shellOwnsTheLine()) {
           const stored = historyRef.current.record(command);
           if (stored) commandHistoryRecord(tab.profileId, stored).catch(() => {});
@@ -224,6 +263,8 @@ export function TerminalPane({
           }
         } else if (event.type === "output") {
           term.write(base64ToBytes(event.data_b64));
+        } else if (event.type === "sudo") {
+          updateTab(tab.tabId, { sudoSaved: event.saved });
         } else if (event.type === "closed") {
           updateTab(tab.tabId, { status: "disconnected", statusMessage: event.reason });
           term.writeln(`\r\n[disconnected: ${event.reason}]`);

@@ -1,6 +1,6 @@
 [package]
 name = "remotix"
-version = "0.1.0"
+version = "0.2.0"
 description = "Remotix - a local-first SSH client and tunnel manager"
 authors = ["Remotix"]
 edition = "2021"

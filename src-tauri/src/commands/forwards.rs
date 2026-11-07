@@ -67,10 +67,53 @@ pub async fn forwards_delete(state: State<'_, AppState>, id: String) -> AppResul
     let db = state.db.clone();
     tokio::task::spawn_blocking(move || {
         let conn = db.get()?;
-        ForwardRepository::delete(&conn, &id)
+        ForwardRepository::delete(&conn, &id)?;
+        // The forward is gone either way; a declined prompt only leaves a
+        // stale name, which the next successful sync removes.
+        if let Err(e) = sync_hosts(&conn) {
+            tracing::warn!(error = %e, "hosts file not updated after deleting a forward");
+        }
+        Ok(())
     })
     .await
     .map_err(|e| AppError::Internal(e.to_string()))?
+}
+
+#[tauri::command]
+pub async fn forwards_set_notes(state: State<'_, AppState>, id: String, notes: String) -> AppResult<PortForward> {
+    let db = state.db.clone();
+    tokio::task::spawn_blocking(move || {
+        let conn = db.get()?;
+        ForwardRepository::set_notes(&conn, &id, &notes)
+    })
+    .await
+    .map_err(|e| AppError::Internal(e.to_string()))?
+}
+
+/// Sets the forward's local hostname (or clears it with `None`) and brings
+/// the hosts file in line, which may show one UAC prompt. Also call it after
+/// changing a forward's bind address: it is a no-op when nothing changed.
+#[tauri::command]
+pub async fn forwards_set_local_hostname(
+    state: State<'_, AppState>,
+    id: String,
+    hostname: Option<String>,
+) -> AppResult<PortForward> {
+    let db = state.db.clone();
+    tokio::task::spawn_blocking(move || {
+        let conn = db.get()?;
+        let forward = ForwardRepository::set_local_hostname(&conn, &id, hostname.as_deref())?;
+        sync_hosts(&conn)?;
+        Ok(forward)
+    })
+    .await
+    .map_err(|e| AppError::Internal(e.to_string()))?
+}
+
+fn sync_hosts(conn: &rusqlite::Connection) -> AppResult<()> {
+    let entries = ForwardRepository::hosts_entries(conn)?;
+    crate::platform::hosts::sync(&entries)?;
+    Ok(())
 }
 
 #[tauri::command]

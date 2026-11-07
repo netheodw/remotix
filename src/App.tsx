@@ -8,6 +8,7 @@ import { ActiveScreen } from "./screens/ActiveScreen";
 import { DashboardScreen } from "./screens/DashboardScreen";
 import { FilesScreen } from "./screens/FilesScreen";
 import { ForwardsScreen } from "./screens/ForwardsScreen";
+import { HistoryScreen } from "./screens/HistoryScreen";
 import { SettingsScreen } from "./screens/SettingsScreen";
 import { TerminalsScreen } from "./screens/TerminalsScreen";
 import { VaultSetupScreen } from "./screens/VaultSetupScreen";
@@ -18,7 +19,7 @@ import { ForwardStatusProvider } from "./state/ForwardStatusContext";
 import { TerminalTabsProvider, useTerminalTabs } from "./state/TerminalTabsContext";
 import { useVault, VaultProvider } from "./state/VaultContext";
 
-export type Section = "dashboard" | "terminals" | "files" | "forwards" | "active" | "settings";
+export type Section = "dashboard" | "terminals" | "files" | "forwards" | "active" | "history" | "settings";
 
 function AppShell() {
   const [section, setSection] = useState<Section>("dashboard");
@@ -99,6 +100,7 @@ function AppShell() {
           filesPanelOpen={filesPanelOpen}
           onFilesPanelChange={setFilesPanelOpen}
         />
+        {section === "history" && <HistoryScreen />}
         {section === "settings" && <SettingsScreen />}
       </main>
       {paletteOpen && <CommandPalette onClose={() => setPaletteOpen(false)} onNavigate={setSection} />}

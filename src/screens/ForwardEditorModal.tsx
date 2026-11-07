@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { forwardsCreate, forwardsStart, forwardsUpdate } from "../api/commands";
+import { forwardsCreate, forwardsSetLocalHostname, forwardsSetNotes, forwardsStart, forwardsUpdate } from "../api/commands";
 import { errorMessage } from "../api/errors";
 import type { ForwardType, PortForward } from "../api/types";
 import { Modal } from "../components/Modal";
@@ -37,6 +37,8 @@ export function ForwardEditorModal({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [notes, setNotes] = useState(forward?.notes ?? "");
+  const [localHostname, setLocalHostname] = useState(forward?.local_hostname ?? "");
 
   const needsTarget = type !== "dynamic";
   const socketTarget = type === "local" && targetIsSocket;
@@ -77,9 +79,15 @@ export function ForwardEditorModal({
     setBusy(true);
     setFormError(null);
     try {
-      const saved = forward
+      let saved = forward
         ? await forwardsUpdate({ id: forward.id, ...buildInput() })
         : await forwardsCreate(buildInput());
+      if (notes.trimEnd() !== saved.notes) saved = await forwardsSetNotes(saved.id, notes);
+      // Also re-sent when the bind address changed, so the hosts entry follows it.
+      const wantedHost = type === "remote" ? null : localHostname.trim().toLowerCase() || null;
+      if (wantedHost !== saved.local_hostname || (wantedHost && forward?.bind_address !== saved.bind_address)) {
+        saved = await forwardsSetLocalHostname(saved.id, wantedHost);
+      }
       await refreshForwards();
       return saved;
     } catch (e) {
@@ -93,7 +101,8 @@ export function ForwardEditorModal({
   const helperText = () => {
     const profileName = profiles.find((p) => p.id === profileId)?.name ?? "a profile";
     if (socketTarget) return `${bindAddress}:${listenPort || "?"} → remote socket ${targetHostname || "/path.sock"} through ${profileName}`;
-    if (type === "local") return `${bindAddress}:${listenPort || "?"} → ${targetHostname || "target"}:${targetPort || "?"} through ${profileName}`;
+    const listenHost = localHostname.trim() ? localHostname.trim().toLowerCase() : bindAddress;
+    if (type === "local") return `${listenHost}:${listenPort || "?"} → ${targetHostname || "target"}:${targetPort || "?"} through ${profileName}`;
     if (type === "remote") return `remote-server:${listenPort || "?"} → 127.0.0.1:${targetPort || "?"} through ${profileName}`;
     return `${bindAddress}:${listenPort || "?"} SOCKS5 through ${profileName}`;
   };
@@ -166,6 +175,24 @@ export function ForwardEditorModal({
       )}
       {errors.bindAddress && <div className="field-error">{errors.bindAddress}</div>}
 
+      {type !== "remote" && (
+        <label className="field">
+          <span>Local hostname (optional)</span>
+          <input
+            value={localHostname}
+            placeholder="ifg-portainer.local"
+            onChange={(e) => setLocalHostname(e.target.value)}
+          />
+          <span className="hint">
+            Remotix adds this name to the Windows hosts file, pointing at the bind address, so you can open{" "}
+            {localHostname.trim() ? `http://${localHostname.trim().toLowerCase()}:${listenPort || "?"}` : "it by name"}.
+            Windows asks for administrator permission when the entry changes. Give each name its own loopback
+            address (127.0.0.2, 127.0.0.3, ...) to reuse the same port for different services, or use port 80 to
+            leave the port out of the address.
+          </span>
+        </label>
+      )}
+
       {type === "local" && (
         <div className="segmented">
           <button type="button" className={!targetIsSocket ? "active" : ""} onClick={() => setTargetIsSocket(false)}>
@@ -208,6 +235,16 @@ export function ForwardEditorModal({
       <label className="checkbox-row">
         <input type="checkbox" checked={startOnLaunch} onChange={(e) => setStartOnLaunch(e.target.checked)} />
         Start automatically when Remotix launches
+      </label>
+
+      <label className="field">
+        <span>Notes</span>
+        <textarea
+          rows={4}
+          value={notes}
+          placeholder="What it is for, who to ask, how to use it... (not for passwords)"
+          onChange={(e) => setNotes(e.target.value)}
+        />
       </label>
 
       {formError && <div className="field-error">{formError}</div>}

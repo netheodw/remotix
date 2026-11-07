@@ -51,6 +51,11 @@ pub struct PortForward {
     pub sort_order: i64,
     pub created_at: String,
     pub updated_at: String,
+    /// Free text, set with `forwards_set_notes`.
+    pub notes: String,
+    /// Name mapped to the bind address in the hosts file, e.g.
+    /// `ifg-portainer.local`. Set with `forwards_set_local_hostname`.
+    pub local_hostname: Option<String>,
 }
 
 impl PortForward {

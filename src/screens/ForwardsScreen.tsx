@@ -26,12 +26,12 @@ function endpointLabel(f: PortForward): { source: string; destination: string | 
     return { source: `remote:${f.listen_port}`, destination: `${f.target_hostname}:${f.target_port}` };
   }
   if (f.forward_type === "dynamic") {
-    return { source: `${f.bind_address}:${f.listen_port} (SOCKS5)`, destination: null };
+    return { source: `${f.local_hostname ?? f.bind_address}:${f.listen_port} (SOCKS5)`, destination: null };
   }
   if (f.target_port === null) {
-    return { source: `${f.bind_address}:${f.listen_port}`, destination: `unix:${f.target_hostname}` };
+    return { source: `${f.local_hostname ?? f.bind_address}:${f.listen_port}`, destination: `unix:${f.target_hostname}` };
   }
-  return { source: `${f.bind_address}:${f.listen_port}`, destination: `${f.target_hostname}:${f.target_port}` };
+  return { source: `${f.local_hostname ?? f.bind_address}:${f.listen_port}`, destination: `${f.target_hostname}:${f.target_port}` };
 }
 
 function ForwardRow({
@@ -62,7 +62,14 @@ function ForwardRow({
       <td className="select-col">
         <input type="checkbox" aria-label={`Select ${f.name}`} checked={selected} onChange={onToggleSelect} />
       </td>
-      <td>{f.name}</td>
+      <td>
+        {f.name}
+        {f.notes && (
+          <div className="row-notes" title={f.notes}>
+            {f.notes}
+          </div>
+        )}
+      </td>
       <td>{f.forward_type}</td>
       <td>{endpoints.source}</td>
       <td>{endpoints.destination ?? "per-request"}</td>

@@ -8,6 +8,8 @@ export interface TerminalTab {
   status: "connecting" | "verifying_host" | "authenticating" | "connected" | "disconnected" | "failed";
   statusMessage: string | null;
   backendId: string | null;
+  /** Set when the terminal saves or drops this profile's sudo password; bumps the sudo button. */
+  sudoSaved?: boolean;
 }
 
 interface TerminalTabsContextValue {

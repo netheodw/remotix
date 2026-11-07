@@ -16,6 +16,12 @@ pub mod vault;
 
 use tauri::Manager;
 
+/// `remotix --apply-hosts <file>`: the elevated hosts-file helper. Returns
+/// its exit code, or `None` for a normal start.
+pub fn apply_hosts_from_args() -> Option<i32> {
+    platform::hosts::apply_from_args(std::env::args())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tracing_subscriber::fmt()
@@ -41,6 +47,10 @@ pub fn run() {
             std::fs::create_dir_all(&data_dir)?;
             let db_path = data_dir.join("remotix.db");
             let pool = db::init_pool(&db_path).expect("failed to initialize local database");
+            if let Ok(conn) = pool.get() {
+                // Nothing is live at startup: open sessions were cut off last time.
+                let _ = repositories::SessionLogRepository::close_dangling(&conn);
+            }
             app.manage(state::AppState::new(pool));
             commands::launch::handle_launch_args(app.handle(), std::env::args(), false);
             tray::init(app)?;
@@ -88,6 +98,7 @@ pub fn run() {
             commands::profiles::profiles_create,
             commands::profiles::profiles_update,
             commands::profiles::profiles_delete,
+            commands::profiles::profiles_set_notes,
             commands::profiles::profiles_duplicate,
             commands::profiles::profiles_reveal_password,
             commands::profiles::profiles_move_to_group,
@@ -102,6 +113,8 @@ pub fn run() {
             commands::forwards::forwards_create,
             commands::forwards::forwards_update,
             commands::forwards::forwards_delete,
+            commands::forwards::forwards_set_notes,
+            commands::forwards::forwards_set_local_hostname,
             commands::forwards::forwards_duplicate,
             commands::forwards::forwards_move_to_group,
             commands::forwards::forwards_start,
@@ -110,6 +123,14 @@ pub fn run() {
             commands::terminal::terminal_input,
             commands::terminal::terminal_resize,
             commands::terminal::terminal_close,
+            commands::sudo::sudo_status,
+            commands::sudo::sudo_forget,
+            commands::sudo::sudo_set_remember,
+            commands::session_log::session_log_list,
+            commands::session_log::session_log_commands,
+            commands::session_log::session_log_record,
+            commands::session_log::session_log_delete,
+            commands::session_log::session_log_clear,
             commands::command_history::command_history_list,
             commands::command_history::command_history_record,
             commands::command_history::command_history_clear,

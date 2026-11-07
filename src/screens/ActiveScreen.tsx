@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
-import { commandHistoryClear, forwardsStop } from "../api/commands";
+import { commandHistoryClear, forwardsStop, sudoStatus } from "../api/commands";
 import type { HostKeyDecision } from "../components/HostKeyDialog";
 import { HostKeyDialog } from "../components/HostKeyDialog";
 import { ConfirmDialog } from "../components/Modal";
 import { ForwardStatusBadge } from "../components/StatusBadge";
 import { TerminalPane, type TerminalSender } from "../components/TerminalPane";
+import { SudoPasswordDialog } from "../components/SudoPasswordDialog";
 import { ToolboxPanel } from "../components/ToolboxPanel";
 import { useData } from "../state/DataContext";
 import { useForwardStatuses } from "../state/ForwardStatusContext";
@@ -53,6 +54,21 @@ export function ActiveScreen({
   // Bumped after a clear so every open pane drops the list it is navigating.
   const [historyEpoch, setHistoryEpoch] = useState(0);
   const activeTab = tabs.find((t) => t.tabId === activeTabId) ?? null;
+  const [sudoDialogFor, setSudoDialogFor] = useState<{ profileId: string; profileName: string } | null>(null);
+  // Whether the active tab's profile has a saved sudo password; re-read when
+  // the tab changes, when a terminal saves or drops one, and after the dialog.
+  const [activeSudoSaved, setActiveSudoSaved] = useState(false);
+  const activeProfileId = activeTab?.profileId ?? null;
+  useEffect(() => {
+    if (!activeProfileId) return;
+    let canceled = false;
+    sudoStatus(activeProfileId)
+      .then((s) => !canceled && setActiveSudoSaved(s.saved))
+      .catch(() => {});
+    return () => {
+      canceled = true;
+    };
+  }, [activeProfileId, activeTab?.sudoSaved, sudoDialogFor]);
   const [panelWidth, setPanelWidth] = useState(storedPanelWidth);
   // The side panel shows Files or the Toolbox, never both. Files is lifted
   // (the Files screen can open it), so it wins whenever it is open.
@@ -116,6 +132,19 @@ export function ActiveScreen({
             </div>
           ))}
           <div className="tab-strip-actions">
+            {activeTab && (
+              <button
+                className={`ghost tab-strip-action${activeSudoSaved ? " toggled" : ""}`}
+                title={
+                  activeSudoSaved
+                    ? `A sudo password is saved for ${activeTab.profileName} - click to forget it`
+                    : `The sudo password for ${activeTab.profileName} is saved after you type it once`
+                }
+                onClick={() => setSudoDialogFor({ profileId: activeTab.profileId, profileName: activeTab.profileName })}
+              >
+                {activeSudoSaved ? "Sudo: saved" : "Sudo"}
+              </button>
+            )}
             {activeTab && (
               <button
                 className="ghost tab-strip-action"
@@ -215,6 +244,14 @@ export function ActiveScreen({
             setClearingHistoryFor(null);
             setHistoryEpoch((e) => e + 1);
           }}
+        />
+      )}
+
+      {sudoDialogFor && (
+        <SudoPasswordDialog
+          profileId={sudoDialogFor.profileId}
+          profileName={sudoDialogFor.profileName}
+          onClose={() => setSudoDialogFor(null)}
         />
       )}
 

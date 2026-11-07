@@ -29,6 +29,7 @@ export function Sidebar({ section, onSelect }: { section: Section; onSelect: (s:
         {item("files", "Files")}
         {item("forwards", "Port Forwards", forwards.length)}
         {item("active", "Active", activeTerminals + activeForwards)}
+        {item("history", "History")}
         {item("settings", "Settings")}
       </nav>
       <div className="sidebar-footer">

@@ -47,6 +47,8 @@ pub struct SshProfile {
     pub last_connected_at: Option<String>,
     pub created_at: String,
     pub updated_at: String,
+    /// Free text, set with `profiles_set_notes`.
+    pub notes: String,
 }
 
 /// Secret material supplied only at create/update time. Dropped from

@@ -81,6 +81,17 @@ pub async fn profiles_reveal_password(state: State<'_, AppState>, id: String) ->
 }
 
 #[tauri::command]
+pub async fn profiles_set_notes(state: State<'_, AppState>, id: String, notes: String) -> AppResult<SshProfile> {
+    let db = state.db.clone();
+    tokio::task::spawn_blocking(move || {
+        let conn = db.get()?;
+        ProfileRepository::set_notes(&conn, &id, &notes)
+    })
+    .await
+    .map_err(|e| AppError::Internal(e.to_string()))?
+}
+
+#[tauri::command]
 pub async fn profiles_delete(state: State<'_, AppState>, id: String) -> AppResult<()> {
     let db = state.db.clone();
     tokio::task::spawn_blocking(move || {

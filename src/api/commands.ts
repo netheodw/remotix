@@ -16,8 +16,11 @@ import type {
   Snippet,
   SnippetCategory,
   SnippetInput,
+  SessionCommand,
   SshProfile,
+  SudoStatus,
   TerminalEvent,
+  TerminalSessionSummary,
   TransferEvent,
   TermiusImportReport,
   TermiusPreview,
@@ -67,6 +70,8 @@ export const profilesGet = (id: string) => invoke<SshProfile>("profiles_get", { 
 export const profilesCreate = (input: NewSshProfileInput) => invoke<SshProfile>("profiles_create", { input });
 export const profilesUpdate = (input: UpdateSshProfileInput) => invoke<SshProfile>("profiles_update", { input });
 export const profilesDelete = (id: string) => invoke<void>("profiles_delete", { id });
+export const profilesSetNotes = (id: string, notes: string) =>
+  invoke<SshProfile>("profiles_set_notes", { id, notes });
 export const profilesDuplicate = (id: string, newName: string) =>
   invoke<SshProfile>("profiles_duplicate", { id, newName });
 export const profilesRevealPassword = (id: string) => invoke<string>("profiles_reveal_password", { id });
@@ -102,6 +107,11 @@ export const forwardsGet = (id: string) => invoke<PortForward>("forwards_get", {
 export const forwardsCreate = (input: NewPortForwardInput) => invoke<PortForward>("forwards_create", { input });
 export const forwardsUpdate = (input: UpdatePortForwardInput) => invoke<PortForward>("forwards_update", { input });
 export const forwardsDelete = (id: string) => invoke<void>("forwards_delete", { id });
+export const forwardsSetNotes = (id: string, notes: string) =>
+  invoke<PortForward>("forwards_set_notes", { id, notes });
+/** Updates the hosts file too, which may show a Windows UAC prompt. */
+export const forwardsSetLocalHostname = (id: string, hostname: string | null) =>
+  invoke<PortForward>("forwards_set_local_hostname", { id, hostname });
 export const forwardsDuplicate = (id: string, newName: string) =>
   invoke<PortForward>("forwards_duplicate", { id, newName });
 export const forwardsMoveToGroup = (id: string, groupId: string | null) =>
@@ -124,6 +134,27 @@ export const terminalInput = (id: string, dataB64: string) => invoke<void>("term
 export const terminalResize = (id: string, cols: number, rows: number) =>
   invoke<void>("terminal_resize", { id, cols, rows });
 export const terminalClose = (id: string) => invoke<void>("terminal_close", { id });
+
+// --- Session log (every terminal session and the commands run in it) ---
+export const sessionLogList = (filter: { profileId?: string | null; search?: string | null; limit?: number } = {}) =>
+  invoke<TerminalSessionSummary[]>("session_log_list", {
+    profileId: filter.profileId ?? null,
+    search: filter.search ?? null,
+    limit: filter.limit ?? null,
+  });
+export const sessionLogCommands = (sessionId: string) =>
+  invoke<SessionCommand[]>("session_log_commands", { sessionId });
+/** `sessionId` is the id `terminalOpen` resolved with. */
+export const sessionLogRecord = (sessionId: string, command: string) =>
+  invoke<SessionCommand | null>("session_log_record", { sessionId, command });
+export const sessionLogDelete = (sessionId: string) => invoke<void>("session_log_delete", { sessionId });
+export const sessionLogClear = () => invoke<void>("session_log_clear");
+
+// --- Saved sudo password (per SSH profile; answered by the terminal in Rust) ---
+export const sudoStatus = (profileId: string) => invoke<SudoStatus>("sudo_status", { profileId });
+export const sudoForget = (profileId: string) => invoke<SudoStatus>("sudo_forget", { profileId });
+export const sudoSetRemember = (profileId: string, remember: boolean) =>
+  invoke<SudoStatus>("sudo_set_remember", { profileId, remember });
 
 // --- Command history (per SSH profile, replayed by Up/Down in the terminal) ---
 export const commandHistoryList = (profileId: string, limit?: number) =>
