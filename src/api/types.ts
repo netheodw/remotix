@@ -74,7 +74,7 @@ export interface PortForward {
   updated_at: string;
   /** Free text; saved with `forwardsSetNotes`, not with create/update. */
   notes: string;
-  /** e.g. "ifg-portainer.local", mapped to bind_address in the hosts file. Set with `forwardsSetLocalHostname`. */
+  /** e.g. "ifg-portainer.local", shown instead of bind_address; the user adds any hosts entry. Set with `forwardsSetLocalHostname`. */
   local_hostname: string | null;
 }
 

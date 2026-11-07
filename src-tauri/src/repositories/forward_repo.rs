@@ -2,7 +2,7 @@ use rusqlite::{Connection, OptionalExtension, Row};
 
 use crate::domain::{is_socket_target, ForwardType, NewPortForwardInput, PortForward, UpdatePortForwardInput};
 use crate::error::{AppError, AppResult};
-use crate::platform::hosts::{self, HostsEntry};
+use crate::platform::hosts;
 use crate::util::{new_id, now_iso};
 use crate::validation::{validate_bind_address, validate_display_name, validate_port};
 
@@ -154,8 +154,7 @@ impl ForwardRepository {
         Self::get(conn, id)
     }
 
-    /// Sets or (with `None` / blank) clears the forward's local hostname. The
-    /// caller syncs the hosts file afterwards.
+    /// Sets or (with `None` / blank) clears the forward's local hostname.
     pub fn set_local_hostname(conn: &Connection, id: &str, hostname: Option<&str>) -> AppResult<PortForward> {
         let forward = Self::get(conn, id)?;
         let value = match hostname.map(str::trim).filter(|h| !h.is_empty()) {
@@ -193,21 +192,6 @@ impl ForwardRepository {
             rusqlite::params![value, now_iso(), id],
         )?;
         Self::get(conn, id)
-    }
-
-    /// What the hosts file's managed block should hold: one entry per
-    /// hostname, mapped to its forward's bind address.
-    pub fn hosts_entries(conn: &Connection) -> AppResult<Vec<HostsEntry>> {
-        let mut by_name = std::collections::BTreeMap::new();
-        for f in Self::list(conn)? {
-            if f.forward_type == ForwardType::Remote {
-                continue;
-            }
-            if let Some(h) = f.local_hostname {
-                by_name.entry(h).or_insert_with(|| hosts_ip(&f.bind_address));
-            }
-        }
-        Ok(by_name.into_iter().map(|(hostname, ip)| HostsEntry { hostname, ip }).collect())
     }
 
     fn assert_group_exists(conn: &Connection, group_id: &str) -> AppResult<()> {
@@ -383,17 +367,8 @@ mod tests {
         assert!(ForwardRepository::set_local_hostname(&conn, &b.id, Some("localhost")).is_err());
         ForwardRepository::set_local_hostname(&conn, &b.id, Some("db.local")).unwrap();
 
-        let entries = ForwardRepository::hosts_entries(&conn).unwrap();
-        assert_eq!(
-            entries,
-            vec![
-                HostsEntry { hostname: "db.local".into(), ip: "127.0.0.1".into() },
-                HostsEntry { hostname: "ifg-portainer.local".into(), ip: "127.0.0.5".into() },
-            ]
-        );
-
-        ForwardRepository::set_local_hostname(&conn, &b.id, Some("  ")).unwrap();
-        assert_eq!(ForwardRepository::hosts_entries(&conn).unwrap().len(), 1);
+        let b = ForwardRepository::set_local_hostname(&conn, &b.id, Some("  ")).unwrap();
+        assert_eq!(b.local_hostname, None);
     }
 
     #[test]

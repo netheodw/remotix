@@ -1,8 +1,10 @@
+import { open as openFileDialog, save as saveFileDialog } from "@tauri-apps/plugin-dialog";
 import { useEffect, useState } from "react";
 import {
   appDataDir,
   autostartIsEnabled,
   autostartSet,
+  backupExport,
   settingsGetAll,
   settingsSet,
   vaultHelloDisable,
@@ -11,6 +13,7 @@ import {
 } from "../api/commands";
 import { errorMessage } from "../api/errors";
 import type { HelloInfo } from "../api/types";
+import { BackupImportDialog } from "../components/BackupImportDialog";
 import { useVault } from "../state/VaultContext";
 
 const DEFAULTS = {
@@ -117,11 +120,9 @@ export function SettingsScreen() {
         <div className="data-dir-row">
           <code>{dataDir}</code>
         </div>
-        <p className="hint">
-          To back up: copy <code>remotix.db</code> from this folder while the app is closed. It stays encrypted with
-          your master password and can be restored by placing it back and unlocking normally.
-        </p>
       </section>
+
+      <BackupSection />
 
       <div className="modal-actions">
         <button onClick={lock}>Lock Vault</button>
@@ -130,6 +131,75 @@ export function SettingsScreen() {
         </button>
       </div>
     </div>
+  );
+}
+
+const BACKUP_FILTERS = [{ name: "Remotix backup", extensions: ["remotix"] }];
+
+/** Pick a `.remotix` file to import. Shared with the vault setup screen. */
+export async function pickBackupFile(): Promise<string | null> {
+  const path = await openFileDialog({ multiple: false, title: "Import Remotix backup", filters: BACKUP_FILTERS });
+  return typeof path === "string" ? path : null;
+}
+
+function BackupSection() {
+  const { refresh } = useVault();
+  const [importPath, setImportPath] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+
+  const exportBackup = async () => {
+    setMessage(null);
+    const date = new Date().toISOString().slice(0, 10);
+    const path = await saveFileDialog({
+      title: "Export Remotix backup",
+      defaultPath: `remotix-backup-${date}.remotix`,
+      filters: BACKUP_FILTERS,
+    });
+    if (!path) return;
+    setBusy(true);
+    try {
+      await backupExport(path);
+      setMessage({ ok: true, text: `Backup saved: ${path}` });
+    } catch (e) {
+      setMessage({ ok: false, text: errorMessage(e) });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="form-section">
+      <h3>Backup</h3>
+      <p className="hint">
+        One file with everything: profiles, passwords and keys, sudo passwords, forwards, notes, snippets and
+        history. The whole file is encrypted with your master password. To move Remotix to another computer, export
+        here and choose Import there (or Restore from backup on its first screen).
+      </p>
+      <div className="backup-actions">
+        <button className="primary" onClick={exportBackup} disabled={busy}>
+          {busy ? "Exporting..." : "Export backup..."}
+        </button>
+        <button
+          onClick={async () => {
+            setMessage(null);
+            setImportPath(await pickBackupFile());
+          }}
+          disabled={busy}
+        >
+          Import backup...
+        </button>
+      </div>
+      {message && <div className={message.ok ? "hint" : "field-error"}>{message.text}</div>}
+      {importPath && (
+        <BackupImportDialog
+          path={importPath}
+          replacesExisting
+          onClose={() => setImportPath(null)}
+          onImported={() => void refresh()}
+        />
+      )}
+    </section>
   );
 }
 

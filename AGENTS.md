@@ -101,6 +101,12 @@ detail goes only to `tracing`.
   captures what the user types there and saves it if sudo doesn't reject it within `VERIFY_WINDOW`. A rejected
   saved password is deleted. The UI only sees `SudoStatus { saved, remember }` and can forget the password or
   turn `remember` off (which also deletes it). Never add a command that returns the value.
+- Backup (`backup.rs`, `commands/backup.rs`, Settings → Backup, "Restore from backup" on the setup screen): one
+  `.remotix` file, `MAGIC | salt len | vault salt | nonce | AES-GCM(vault key, VACUUM INTO snapshot)`, so the
+  whole DB (plain-text metadata included) is encrypted and the master password opens it. Import checks the
+  password and file *before* its `before_replace` callback stops sessions and locks the vault. It then keeps
+  `remotix-before-import-<ts>.db`, restores through the SQLite backup API (rusqlite `backup` feature, no restart),
+  runs migrations, and deletes `vault_hello` (bound to the old machine's TPM).
 - Termius import files are read only on the Rust side (`importers/`), for the same reason.
 - `tests/vault_security.rs` scans the raw DB and WAL bytes to confirm no plaintext appears.
 - Windows Hello unlock (`platform/hello.rs`, table `vault_hello`): the vault key is AES-GCM wrapped under
@@ -154,6 +160,10 @@ transaction, and is recorded in `schema_migrations`. App settings are plain key/
   `session_log_record`, whatever the Up/Down history setting says. Commands use the same `normalize` rules as the
   Up/Down history, but repeats are kept. The rows copy the profile's name and host, so they survive deleting the
   profile.
+- Forward local hostnames (`port_forwards.local_hostname`, `platform/hosts.rs`, `LocalHostnameGuide.tsx`): Remotix
+  only *reads* the hosts file (`hosts_lookup`) and shows the user the line to add, or says nothing is needed for a
+  `*.localhost` name. **Never write system files, never self-elevate, never launch hidden PowerShell.** Version 0.2.0
+  did (an elevated `--apply-hosts` helper), and Bitdefender killed the app and quarantined the exe and installer.
 - Notes: `ssh_profiles.notes` / `port_forwards.notes` are saved only through `profiles_set_notes` /
   `forwards_set_notes`. The editors call these after create/update, so the create/update inputs did not change.
 - Toolbox: `ToolboxPanel.tsx` shares the terminal side panel with Files (one or the other). Snippets and

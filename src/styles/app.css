@@ -1463,3 +1463,67 @@ body.col-resizing {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Guide for a forward's local hostname (the user edits the hosts file). */
+.hostname-guide {
+  margin: -4px 0 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.hostname-guide.ok {
+  border-color: var(--success);
+}
+.hostname-guide.warn {
+  border-color: var(--warning);
+}
+.hostname-guide p {
+  margin: 0 0 6px;
+}
+.hostname-guide ol {
+  margin: 0;
+  padding-left: 20px;
+}
+.hostname-guide li {
+  margin-bottom: 6px;
+}
+.hostname-guide-copy {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+.hostname-guide-copy code {
+  flex: 1;
+  padding: 4px 6px;
+  background: var(--bg-2);
+  border-radius: var(--radius);
+  word-break: break-all;
+}
+
+/* --- Backup --- */
+.backup-actions {
+  display: flex;
+  gap: 8px;
+  margin: 8px 0;
+}
+.auth-alt {
+  margin-top: 14px;
+  text-align: center;
+  color: var(--text-2);
+  font-size: 12px;
+}
+.link-button {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: inherit;
+}
+.link-button:hover {
+  color: var(--accent-hover);
+  text-decoration: underline;
+}

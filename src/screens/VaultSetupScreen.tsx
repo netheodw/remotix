@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { vaultSetup } from "../api/commands";
 import { errorMessage } from "../api/errors";
+import { BackupImportDialog } from "../components/BackupImportDialog";
 import { useVault } from "../state/VaultContext";
+import { pickBackupFile } from "./SettingsScreen";
 
 function passwordStrength(pw: string): { score: number; label: string } {
   let score = 0;
@@ -21,6 +23,7 @@ export function VaultSetupScreen() {
   const [acknowledged, setAcknowledged] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [importPath, setImportPath] = useState<string | null>(null);
 
   const strength = passwordStrength(password);
   const mismatch = confirm.length > 0 && password !== confirm;
@@ -71,7 +74,21 @@ export function VaultSetupScreen() {
         <button className="primary full-width" disabled={!canSubmit} onClick={submit}>
           {busy ? "Creating vault..." : "Create Vault"}
         </button>
+        <div className="auth-alt">
+          Moving from another computer?{" "}
+          <button className="link-button" onClick={async () => setImportPath(await pickBackupFile())}>
+            Restore from backup
+          </button>
+        </div>
       </div>
+      {importPath && (
+        <BackupImportDialog
+          path={importPath}
+          replacesExisting={false}
+          onClose={() => setImportPath(null)}
+          onImported={() => void refresh()}
+        />
+      )}
     </div>
   );
 }

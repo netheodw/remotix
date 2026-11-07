@@ -1,3 +1,4 @@
+mod backup;
 mod commands;
 pub mod db;
 pub mod domain;
@@ -15,12 +16,6 @@ mod validation;
 pub mod vault;
 
 use tauri::Manager;
-
-/// `remotix --apply-hosts <file>`: the elevated hosts-file helper. Returns
-/// its exit code, or `None` for a normal start.
-pub fn apply_hosts_from_args() -> Option<i32> {
-    platform::hosts::apply_from_args(std::env::args())
-}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -79,6 +74,8 @@ pub fn run() {
             commands::vault::vault_setup,
             commands::vault::vault_unlock,
             commands::vault::vault_lock,
+            commands::backup::backup_export,
+            commands::backup::backup_import,
             commands::vault::vault_hello_status,
             commands::vault::vault_hello_enable,
             commands::vault::vault_hello_disable,
@@ -115,6 +112,7 @@ pub fn run() {
             commands::forwards::forwards_delete,
             commands::forwards::forwards_set_notes,
             commands::forwards::forwards_set_local_hostname,
+            commands::forwards::hosts_lookup,
             commands::forwards::forwards_duplicate,
             commands::forwards::forwards_move_to_group,
             commands::forwards::forwards_start,

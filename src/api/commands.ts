@@ -109,9 +109,11 @@ export const forwardsUpdate = (input: UpdatePortForwardInput) => invoke<PortForw
 export const forwardsDelete = (id: string) => invoke<void>("forwards_delete", { id });
 export const forwardsSetNotes = (id: string, notes: string) =>
   invoke<PortForward>("forwards_set_notes", { id, notes });
-/** Updates the hosts file too, which may show a Windows UAC prompt. */
+/** Stores the name only; Remotix never edits the hosts file. */
 export const forwardsSetLocalHostname = (id: string, hostname: string | null) =>
   invoke<PortForward>("forwards_set_local_hostname", { id, hostname });
+/** The address `hostname` maps to in the OS hosts file (read-only check), or null. */
+export const hostsLookup = (hostname: string) => invoke<string | null>("hosts_lookup", { hostname });
 export const forwardsDuplicate = (id: string, newName: string) =>
   invoke<PortForward>("forwards_duplicate", { id, newName });
 export const forwardsMoveToGroup = (id: string, groupId: string | null) =>
@@ -149,6 +151,13 @@ export const sessionLogRecord = (sessionId: string, command: string) =>
   invoke<SessionCommand | null>("session_log_record", { sessionId, command });
 export const sessionLogDelete = (sessionId: string) => invoke<void>("session_log_delete", { sessionId });
 export const sessionLogClear = () => invoke<void>("session_log_clear");
+
+// --- Backup (one file, fully encrypted with the master password) ---
+/** Needs the vault unlocked. */
+export const backupExport = (path: string) => invoke<void>("backup_export", { path });
+/** Replaces all data; closes sessions and locks the vault once the password and file check out. */
+export const backupImport = (path: string, password: string) =>
+  invoke<{ previous_data_copy: string | null }>("backup_import", { path, password });
 
 // --- Saved sudo password (per SSH profile; answered by the terminal in Rust) ---
 export const sudoStatus = (profileId: string) => invoke<SudoStatus>("sudo_status", { profileId });

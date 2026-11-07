@@ -2,6 +2,7 @@ import { useState } from "react";
 import { forwardsCreate, forwardsSetLocalHostname, forwardsSetNotes, forwardsStart, forwardsUpdate } from "../api/commands";
 import { errorMessage } from "../api/errors";
 import type { ForwardType, PortForward } from "../api/types";
+import { LocalHostnameGuide } from "../components/LocalHostnameGuide";
 import { Modal } from "../components/Modal";
 import { useData } from "../state/DataContext";
 
@@ -180,17 +181,13 @@ export function ForwardEditorModal({
           <span>Local hostname (optional)</span>
           <input
             value={localHostname}
-            placeholder="ifg-portainer.local"
+            placeholder="ifg-portainer.localhost"
             onChange={(e) => setLocalHostname(e.target.value)}
           />
-          <span className="hint">
-            Remotix adds this name to the Windows hosts file, pointing at the bind address, so you can open{" "}
-            {localHostname.trim() ? `http://${localHostname.trim().toLowerCase()}:${listenPort || "?"}` : "it by name"}.
-            Windows asks for administrator permission when the entry changes. Give each name its own loopback
-            address (127.0.0.2, 127.0.0.3, ...) to reuse the same port for different services, or use port 80 to
-            leave the port out of the address.
-          </span>
         </label>
+      )}
+      {type !== "remote" && (
+        <LocalHostnameGuide hostname={localHostname} bindAddress={bindAddress} port={listenPort} />
       )}
 
       {type === "local" && (

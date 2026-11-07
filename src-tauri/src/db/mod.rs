@@ -42,7 +42,7 @@ pub fn init_pool(db_path: &Path) -> rusqlite::Result<Pool> {
     Ok(pool)
 }
 
-fn run_migrations(conn: &mut Connection) -> rusqlite::Result<()> {
+pub(crate) fn run_migrations(conn: &mut Connection) -> rusqlite::Result<()> {
     conn.execute_batch(
         "CREATE TABLE IF NOT EXISTS schema_migrations (name TEXT PRIMARY KEY, applied_at TEXT NOT NULL);",
     )?;

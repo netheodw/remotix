@@ -67,13 +67,7 @@ pub async fn forwards_delete(state: State<'_, AppState>, id: String) -> AppResul
     let db = state.db.clone();
     tokio::task::spawn_blocking(move || {
         let conn = db.get()?;
-        ForwardRepository::delete(&conn, &id)?;
-        // The forward is gone either way; a declined prompt only leaves a
-        // stale name, which the next successful sync removes.
-        if let Err(e) = sync_hosts(&conn) {
-            tracing::warn!(error = %e, "hosts file not updated after deleting a forward");
-        }
-        Ok(())
+        ForwardRepository::delete(&conn, &id)
     })
     .await
     .map_err(|e| AppError::Internal(e.to_string()))?
@@ -90,9 +84,9 @@ pub async fn forwards_set_notes(state: State<'_, AppState>, id: String, notes: S
     .map_err(|e| AppError::Internal(e.to_string()))?
 }
 
-/// Sets the forward's local hostname (or clears it with `None`) and brings
-/// the hosts file in line, which may show one UAC prompt. Also call it after
-/// changing a forward's bind address: it is a no-op when nothing changed.
+/// Sets the forward's local hostname (or clears it with `None`). Only the
+/// database changes: Remotix never writes the hosts file (see
+/// `platform/hosts.rs` for why).
 #[tauri::command]
 pub async fn forwards_set_local_hostname(
     state: State<'_, AppState>,
@@ -102,18 +96,19 @@ pub async fn forwards_set_local_hostname(
     let db = state.db.clone();
     tokio::task::spawn_blocking(move || {
         let conn = db.get()?;
-        let forward = ForwardRepository::set_local_hostname(&conn, &id, hostname.as_deref())?;
-        sync_hosts(&conn)?;
-        Ok(forward)
+        ForwardRepository::set_local_hostname(&conn, &id, hostname.as_deref())
     })
     .await
     .map_err(|e| AppError::Internal(e.to_string()))?
 }
 
-fn sync_hosts(conn: &rusqlite::Connection) -> AppResult<()> {
-    let entries = ForwardRepository::hosts_entries(conn)?;
-    crate::platform::hosts::sync(&entries)?;
-    Ok(())
+/// The address `hostname` is mapped to in the OS hosts file, if any.
+/// Read-only; lets the editor say whether the user's entry is in place.
+#[tauri::command]
+pub async fn hosts_lookup(hostname: String) -> AppResult<Option<String>> {
+    tokio::task::spawn_blocking(move || crate::platform::hosts::lookup_in_hosts_file(hostname.trim()))
+        .await
+        .map_err(|e| AppError::Internal(e.to_string()))
 }
 
 #[tauri::command]

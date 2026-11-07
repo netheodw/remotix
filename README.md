@@ -5,6 +5,12 @@ application, not a hosted service: every credential, connection profile, and kno
 encrypted SQLite database on your own machine. There is no account, no cloud sync, no telemetry, and no server
 component of any kind - the only network traffic Remotix generates is the direct SSH connection you ask it to make.
 
+## Download
+
+Windows installers are on the **[Releases page](https://github.com/netheodw/remotix/releases/latest)**: download
+`Remotix_<version>_x64-setup.exe` and run it. Upgrading keeps your data. The installer is not code-signed, so
+SmartScreen may ask you to confirm.
+
 ## Privacy and local-only guarantees
 
 - **No cloud account.** The vault is protected by a master password you choose; Remotix never transmits it or any
@@ -118,6 +124,18 @@ npm run tauri build
 Produces, per the Tauri bundler configuration for the host platform: an MSI/NSIS installer on Windows, and an
 AppImage/`.deb`/`.rpm` on Linux (whichever the build environment supports).
 
+### Publishing a release
+
+Releases are built locally and published from this machine. Bump the version in `package.json`,
+`src-tauri/tauri.conf.json` and `src-tauri/Cargo.toml`, commit, then from PowerShell:
+
+```powershell
+.\scripts\release.ps1                      # build, push, tag v<version>, create the GitHub release
+.\scripts\release.ps1 -SkipBuild -Notes "What changed"
+```
+
+It needs the GitHub CLI once: `winget install GitHub.cli`, then `gh auth login`.
+
 ## Architecture overview
 
 ```
@@ -159,10 +177,15 @@ same directory used for window state.
 
 ### Backup and restore
 
-The database file is a single, self-contained SQLite file. To back it up: close Remotix, copy `remotix.db`
-elsewhere. To restore: close Remotix, replace `remotix.db` with the backup, relaunch, and unlock with the master
-password that was active when the backup was taken. The file stays encrypted at rest in both directions - copying it
-does not expose any credential, and importing a backup still requires the correct master password.
+Settings -> **Backup** -> **Export backup...** writes one `.remotix` file that is encrypted as a whole with the
+master password (profiles, credentials, sudo passwords, forwards, notes, snippets, history). To restore, or to move
+to another computer, use **Import backup...** in Settings, or **Restore from backup** on the first screen of a new
+install, and enter the master password the vault had when the backup was made. Importing over existing data keeps a
+copy of it as `remotix-before-import-<time>.db` in the data folder. Windows Hello has to be turned on again after a
+restore.
+
+By hand: close Remotix (tray -> Quit), copy `remotix.db` (and `remotix.db-wal` if present) elsewhere, and put them
+back the same way to restore.
 
 ## Security model and limitations
 

@@ -1,3 +1,4 @@
+pub mod backup;
 pub mod command_history;
 pub mod forwards;
 pub mod groups;
